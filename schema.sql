@@ -1,5 +1,6 @@
-DROP TABLE reviewer;
-DROP TABLE submission cascade;
+DROP TABLE person;
+DROP TABLE paper cascade;
+DROP TABLE assignment cascade;
 DROP TABLE finished;
 DROP TABLE alert;
 DROP TABLE review;
@@ -8,17 +9,17 @@ DROP TABLE review_review;
 
 CREATE TABLE person (
 	--ID SERIAL PRIMARY KEY,
-	id CHAR(30) PRIMARY KEY, -- login name for the system (no password)
-	name CHAR(50),		-- The name that appears in system emails etc.
-	email CHAR(50),
+	id VARCHAR(30) PRIMARY KEY, -- login name for the system (no password)
+	name VARCHAR(50),		-- The name that appears in system emails etc.
+	email VARCHAR(50),
 	year INTEGER, -- year in the program
-	milestone CHAR(20), -- None, 1st Paper, 2nd Paper, or Proposal
+	milestone VARCHAR(20), -- None, 1st Paper, 2nd Paper, or Proposal
 	expertise TEXT, -- statistics, economics, IS, etc. Comma delimited.
 	
 	submitted INTEGER, -- num papers submitted
 	reviewed INTEGER, -- num papers reviewed
 	passes INTEGER, -- current number of 'pass' actions. Too many you're out.
-	dropped INTEGER, -- num reviews accepted and not done.
+	dropped INTEGER, -- num reviews accepted and not done. (allowed?)
 	
 	active_requests INTEGER, -- number of requests you're currently fielding
 	active_submissions INTEGER, -- number of submissions you have out
@@ -26,13 +27,13 @@ CREATE TABLE person (
 	started TIMESTAMP, -- profile creation date
 	last_review TIMESTAMP,
 	
-	enabled BOOLEAN -- 1/0 for are they 1) a student, and 2) haven't dropped 
-					-- a review recently
+	enabled BOOLEAN, -- could change if they leave heinz, or refuse too much
+	disabled_until TIMESTAMP -- if they become disabled after too many passes.
 );
 
 CREATE TABLE paper (
 	id SERIAL PRIMARY KEY,
-	author CHAR(30), -- author's id
+	author VARCHAR(30), -- author's id
 	title TEXT,
 	abstract TEXT,
 	requested_expertise TEXT,
@@ -44,9 +45,10 @@ CREATE TABLE paper (
 CREATE TABLE assignment (
 	id SERIAL PRIMARY KEY,
 	paper INT, -- The id of the related submission
-	reviewer CHAR(30),			-- finally accepted
+	reviewer VARCHAR(30),			-- finally accepted
+	expertise TEXT, -- reviewer's expertise at time of assignment
 	candidates TEXT, -- list of next possibilities
-	kind CHAR(10), -- jr/sr
+	kind VARCHAR(10), -- jr/sr .. other
 	accepted BOOLEAN, --by a reviewer
 	completed BOOLEAN --by a reviewer
 );
@@ -64,20 +66,20 @@ CREATE TABLE finished_assignment (
 -- Sits around in the box of an active reviewer. 
 -- They signal the review is finished by clicking it.
 CREATE TABLE finished (
-	reviewer CHAR(30),
-	requester CHAR(30)
+	reviewer VARCHAR(30),
+	requester VARCHAR(30)
 );
 
 CREATE TABLE alert (
-	person CHAR(30), -- the intended recipient
+	person VARCHAR(30), -- the intended recipient
 	message TEXT, -- either 'you have a reviewer' or 'you have a review due'
-	reveal_if_after DATE -- when it should be sent to the inbox
+	reveal_if_after TIMESTAMP -- when it should be sent to the inbox
 );
 
 CREATE TABLE review (
 	id SERIAL PRIMARY KEY,
-	reviewer CHAR(30), -- their id
-	author CHAR(30),   -- paper's author's id
+	reviewer VARCHAR(30), -- their id
+	author VARCHAR(30),   -- paper's author's id
 	title TEXT,		   -- of the paper
 	returned TIMESTAMP,-- 
 	on_time BOOLEAN

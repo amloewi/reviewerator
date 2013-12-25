@@ -39,10 +39,10 @@ class show_dashboard:
 		# It gets 'login' from the (.*) regex.
 		person = model.get_user_data(id)
 		requests  = model.get_user_requests(id)
-		#alerts   = model.get_user_alerts(id)
-		#finished = model.get_user_finished(id)
-		#feedback = model.get_user_feedback(id)		
-		return render.user_page(person, requests) #, alerts, finished, feedback)
+		alerts   = model.get_user_alerts(id)
+		finished = model.get_user_finished(id)
+		feedback = model.get_user_feedback(id)		
+		return render.user_page(person, requests, alerts, finished, feedback)
 		
 		
 class edit_user:
@@ -57,7 +57,7 @@ class edit_user:
 			
 	def GET(self, id):
 		person = model.get_user_data(id)
-		return render.edit_profile(id, person)
+		return render.edit_profile(person)
 		
 		
 class create_user:
@@ -75,7 +75,7 @@ class submit_request:
 		if data:
 			data = json.loads(data)
 			data = {d["name"]:d["value"] for d in data}
-			data['active'] = 1
+			print(data)
 			model.process_submission(data)
 		
 		
@@ -104,50 +104,58 @@ if __name__ == "__main__":
 	# insert a few with known stats so that ... I can test if the submission
 	# works right. What is there to test?
 	alex = {
-			"login":"alex",
+			"id":"alex",
+			"name":"Alex",
 			"submitted":3,
 			"reviewed":3,
 			"milestone":"None yet",
-			"enabled":1,
+			"enabled":True,
 			"passes":0,
 			"dropped":0,
 			"active_requests":0,
+			"active_submissions":0,
 			"email":"amloewi@gmail.com",
 			"last_review":datetime.datetime.now()
 	}
 	shelly = {
-			"login":"shelly",
+			"id":"shelly",
+			"name":"Shelly",
 			"submitted":3,
 			"reviewed":3,
 			"milestone":"None yet",
-			"enabled":1,
+			"enabled":True,
 			"passes":0,
 			"dropped":0,
 			"active_requests":0,
+			"active_submissions":0,
 			"email":"amloewi@gmail.com",
 			"last_review":datetime.datetime.now()
 	}
 	paul = {
-			"login":"paul",
+			"id":"paul",
+			"name":"Paul",
 			"submitted":3,
 			"reviewed":3,
 			"milestone":"2nd Paper",
-			"enabled":1,
+			"enabled":True,
 			"passes":0,
 			"dropped":0,
 			"active_requests":0,
+			"active_submissions":0,
 			"email":"amloewi@gmail.com",
 			"last_review":datetime.datetime.now()
 	}
 	clara = {
-			"login":"clara",
+			"id":"clara",
+			"name":"Clara",
 			"submitted":3,
 			"reviewed":3,
 			"milestone":"2nd Paper",
-			"enabled":1,
+			"enabled":True,
 			"passes":0,
 			"dropped":0,
 			"active_requests":0,
+			"active_submissions":0,
 			"email":"amloewi@gmail.com",
 			"last_review":datetime.datetime.now()
 	}

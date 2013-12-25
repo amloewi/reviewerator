@@ -1,4 +1,4 @@
-$def with (name, data)
+$def with (person)
 <html>
 	<head>
 		
@@ -34,14 +34,14 @@ $def with (name, data)
 			function save_user_data_changes(){
 				// Grabs everything in the form
 				user_data = jQuery("#user_data").serializeArray()
-				user_login = "$data.login"
+				user_id = "$person.id"
 				// 'login' isn't in the form, but it's necessary to update
-				user_data.push({"name":"login", "value":user_login})
+				user_data.push({"name":"id", "value":user_id})
 				//jQuery.get("/users/edit/"+user_name)
-				jQuery.post("/edit/"+user_login,
+				jQuery.post("/edit/"+user_id,
 							JSON.stringify(user_data),
 							function () {
-								window.location = "/dashboard/"+user_login
+								window.location = "/dashboard/"+user_id
 							}
 				)
 			}
@@ -49,7 +49,7 @@ $def with (name, data)
 			
 			// Selects the correct milestone
 			jQuery(document).ready(function () {
-				milestone="$data.milestone"
+				milestone="$person.milestone"
 				ms = jQuery("option[value='"+milestone+"']")
 				ms.attr('selected', 'selected')
 			})
@@ -76,7 +76,7 @@ $def with (name, data)
 				
 				Login:
 				<div style="float:right">
-					$data.login
+					$person.id
 				</div>
 		
 				<div style="height:10px;"></div>
@@ -86,7 +86,7 @@ $def with (name, data)
 							type='text'
 							name="name"
 							style="float:right"
-							value="$data.name"
+							value="$person.name"
 							placeholder="ADD YOUR NAME!!!"
 							required
 				>
@@ -96,7 +96,7 @@ $def with (name, data)
 							type='text'
 							name="email"
 							style="float:right"
-					    	value="$data.email"
+					    	value="$person.email"
 							placeholder="ADD YOUR EMAIL!!!"
 							required
 				>
@@ -107,7 +107,7 @@ $def with (name, data)
 							min="1"
 					   		name="year"
 							style="float:right"
-					   		value="$data.year"
+					   		value="$person.year"
 							required
 				>
 		
@@ -129,28 +129,28 @@ $def with (name, data)
 				<textarea
 					name="expertise"
 					style="height:100px; width:250px"
-					value="$data.expertise"
+					value="$person.expertise"
 					placeholder="E.g. Econ, statistics, ... separated by commas"
-				>$data.expertise</textarea>
+				>$person.expertise</textarea>
 		
 				<p>
 				<div> Submitted: 
 					<div style="float:right">
-						$data.submitted papers
+						$person.submitted papers
 					</div>
 				</div>
 		
 				<p>	
 				<div> Reviewed: 
 					<div style="float:right">
-						$data.reviewed papers
+						$person.reviewed papers
 					</div>
 				</div>
 		
 				<p>	
 				<div> Dropped: 
 					<div style="float:right">
-						$data.dropped papers
+						$person.dropped papers
 					</div>
 				</div>
 				<div style="height:10px;"></div>

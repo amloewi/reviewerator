@@ -1,4 +1,4 @@
-$def with (person, requests)
+$def with (person, requests, alerts, finished, feedback)
 <html>
 	<head>
 		
@@ -40,7 +40,7 @@ $def with (person, requests)
 				// Get the form data: Abstract, Title, etc.
 				submission = jQuery("#submission").serializeArray()
 				// Identify it -- this isn't in the form
-				submission.push({"name":"id", "value":"$person.id"})
+				submission.push({"name":"author", "value":"$person.id"})
 
 				jQuery.post("/submit",
 					JSON.stringify(submission),
@@ -95,6 +95,14 @@ $def with (person, requests)
 					}
 			}
 			
+			function display_alert(ix){
+				$for i, r in enumerate(alerts):
+					if(ix == $i){
+						jQuery("#request_abstract").text("$alerts[i].message")
+					}
+				// Show a 'close' button
+			}
+			
 			function display_response(ix){
 				// You've got a reviewer! It is:
 				x=0
@@ -113,7 +121,6 @@ $def with (person, requests)
 
 			// Prepares the inbox
 			jQuery(document).ready(function () {
-				//milestone="$data.milestone"
 				//ms = jQuery("option[value='"+milestone+"']")
 				//ms.attr('selected', 'selected')
 				
@@ -288,6 +295,24 @@ $def with (person, requests)
 							</div>
 					</div>
 					
+					<div>
+						$for i, r in enumerate(alerts):
+							<div class="well well-sm"
+								 style="margin:0"
+							>
+								Alert
+								<input class="btn btn-primary"
+									   style="width:60px;
+											  height:30px;
+											  float:right;
+											  background-color:red
+											 "
+									   value="View"
+									   onclick="display_alert($i)"
+								>	
+							
+							</div>
+					</div>
 					
 
 

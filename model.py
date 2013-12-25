@@ -23,6 +23,11 @@ from smtplib         import SMTP_SSL
 # 				   password='rWV1ucM1sW-BMFTz4LNTMQsTVW',
 #				   sslmode='require')
 
+# The number of passes before you're disabled for PASS_PENALTY
+PASS_LIMIT = 5
+# The number of days you're out, if you go over the pass limit
+PASS_PENALTY = 14 #days
+
 
 db = web.database(dbn='postgres',
 					user='alexloewi',
@@ -45,7 +50,7 @@ def create_user(id):
 					   started=now,
 					   last_review=now)
 	
-def get_user_data(person):
+def get_user_data(id):
 	return db.where('person', id=id)[0]
 
 def set_user_data(data):
@@ -59,7 +64,10 @@ def get_user_requests(id):
 	'''Finds all active review requests assigned a particular reviewer.
 	Called when the dashboard is rendered, to populate the request window.'''
 	
-	rqs = list(db.where('assignment', reviewer=id))	
+	asmts = list(db.where('assignment', reviewer=id, accepted=False))
+	rqs = []
+	for a in asmts:
+		rqs.append(db.where('paper', id=a.paper)[0])
 	return(rqs)
 
 
@@ -120,13 +128,13 @@ def email_notice(email, message, author=None, reviewer=None):
 	    s.quit()
 
 
-def request_review(reviewer, paper, kind):
-	"""Send a request to a person. Takes the person and paper OBJECTS.
+def request_review(paper, reviewer, kind):
+	"""Send a request to a person. Takes the person object and paper dict.
 	
 	Either they already exist, or you can call them right before. It's cleaner than having a toggle for 'just a name, or the whole thing?'
 	"""
 	
-	email_notice(reviewer.email, 'request', author=paper.author)
+	email_notice(reviewer.email, 'request', author=paper['author'])
 	increment(reviewer, 'active_requests')
 	# Is that really ALL?
 
@@ -162,7 +170,8 @@ def process_submission(paper):
 	'''
 	
 	# Choose reviewers, based on the ratio AND CURRENT LOAD
-	rvrs = db.where('person', enabled=1)
+	rvrs = list(db.where('person', enabled=True))
+	print [r.id for r in rvrs]
 	if rvrs:
 		# Can't review your own paper
 		rvrs = [r for r in list(rvrs) if r.id != paper['author']]
@@ -172,36 +181,41 @@ def process_submission(paper):
 		kinds = ['jr', 'sr']
 		features = [["None yet", "1st Paper"],
 					["2nd Paper", "Proposal"]]
+		n = len(kinds)
 		###########################
 		
 		rdict = {k:[] for k in kinds}
 		# For each reviewer
 		for r in rvrs:
 			# Look at all the kinds available
-			for i in range(len(kinds)):
+			for i in range(n):
 				# If the rvr's milestone falls into that category,
 				if r.milestone in features[i]:
 					# Sort them accordingly.
 					rdict[kinds[i]].append(r)
-				
+		print rdict
 		# Do the multi-parameter prioritized sort
 		# fxns is (are) defined immediately above
 		lists = [multisort(rdict[k], fxns, rev) for k in kinds]
 		
-		asmt = {"paper": 		paper.id,
-				"accepted":		0,
-				"completed":	0}
+		# Have to insert it to GET an id
+		paper_id = db.insert('paper', **paper)
+		
+		asmt = {"paper": 		paper_id,
+				"accepted":		False,
+				"completed":	False}
 
-		n = len(kinds)
 		asmts = [copy.copy(asmt) for i in range(n)]
 		for i, a in enumerate(asmts):
 			# Just the names, from the corresponding list
 			candidates = [p.id for p in lists[i]]
+			print candidates
 			# Cycle through the other candidates, and stick them on the end
 			# as backups, even though they're a different 'kind.' 
 			# This could theoretically result in someone having to reject
 			# something multiple times, but to avoid that seems 
-			# complicated and unnecessary.
+			# complicated and unnecessary. Better to make sure a reviewer
+			# is gotten from SOMEwhere.
 			for j in range(i+1,n)+range(i):
 				candidates += [p.id for p in lists[j]] 
 			# The first person from the corresponding list
@@ -211,16 +225,15 @@ def process_submission(paper):
 			candidates = " ".join(candidates[1:])
 			a["candidates"] = candidates
 			a["kind"] = kinds[i]
+			a['expertise'] = lists[i][0].expertise
 			
-			request_review(paper, lists[i][0])
-			db.insert('assignments', **a)
+			request_review(paper, lists[i][0], kinds[i])
+			db.insert('assignment', **a)
 		
 		# Notch one up for the submitter
 		author = db.where('person', id=paper['author'])[0]
 		increment(author, 'submitted')
 		increment(author, 'active_submissions')
-		# And toss in the paper.
-		db.insert('paper', **paper)
 		
 	else:
 		# nobody's signed up -- hope that's an error
@@ -229,15 +242,15 @@ def process_submission(paper):
 
 def accept_submission(rvr_id, paper_id):
 	# Get the submission itself
-	paper = db.where('paper', paper_id=paper_id)[0]
+	paper = db.where('paper', id=paper_id)[0]
 	author = db.where('person', id=paper.author)[0]
 	rvr = get_user_data(rvr_id)
 	
 	asmts = [a for a in db.where('assignment', paper=paper.id)]
 	for a in asmts:
 		if a.reviewer == rvr_id:
-			a['accepted'] = 1
-			db.update('assignment', where="id=$id" vars=a, **a)
+			a['accepted'] = True
+			db.update('assignment', where="id=$id", vars=a, **a)
 			break	 		
 	
 	#	email the author
@@ -246,7 +259,7 @@ def accept_submission(rvr_id, paper_id):
 	# 	set a reminder with the deadline
 	td = datetime.timedelta(days=paper.timeline-1)
 	now = datetime.datetime.now()
-	reminder = {'recipient': rvr.id, 
+	reminder = {'person': rvr.id, 
 				'message': "You have a review for "\
 							+author.name+" due in 1 day!",
 				'reveal_if_after':now+td}
@@ -265,6 +278,14 @@ def reject_submission(rvr_id, paper_id):
 	rvr = db.where('person', id=rvr_id)[0]
 	increment(rvr, 'passes')
 	increment(rvr, 'active_requests', -1) #i.e. decrement
+	
+	# Take the person out if they 'pass' too many requests.
+	rvr = db.where('person', id=rvr_id)[0]
+	if rvr.passes > PASS_LIMIT:
+		back = datetime.datetime.now() + datetime.timedelta(days=PASS_PENALTY)
+		rvr.enabled = False
+		rvr.disabled_until = back
+		db.update('person', where="id=$id", vars=rvr, **rvr)
 	
 	asmt = db.where('assignment', paper=paper.id, reviewer=rvr.id)[0]	
 	new = copy.copy(asmt)
@@ -287,7 +308,24 @@ def reject_submission(rvr_id, paper_id):
 		author = db.where('person', id=paper.author)[0]
 		email_notice(author.email, "apology")
 		print 'only got here!'
+		
 	
+def get_user_alerts(id):
+	alerts = list(db.where('alert', person=id))
+	now = datetime.datetime.now()
+	active = [a for a in alerts if a.reveal_if_after < now]
+	return(active)
+
+
+
+
+def get_user_finished(id):
+	finished = list(db.where('finished', reviewer=id))
+	return(finished)
+	
+def get_user_feedback(id):
+	#rr = db.where('review_review', rev)
+	return([])
 	
 	
 	

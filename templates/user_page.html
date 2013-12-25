@@ -1,0 +1,474 @@
+$def with (data, requests)
+<html>
+	<head>
+		
+		<meta charset="utf-8">
+	    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+	    <meta name="viewport" 
+			  content="width=device-width, initial-scale=1.0">
+	    <meta name="description" content="">
+	    <meta name="author" content="">
+	    <link rel="shortcut icon" href="../../docs-assets/ico/favicon.png">
+
+	    <!-- Bootstrap core CSS -->
+	    <link href="/static/dist/css/bootstrap.css" rel="stylesheet">
+
+	    <!-- Custom styles for this template -->
+	    <!--<link href="grid.css" rel="stylesheet">-->
+
+	    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+	    <!--[if lt IE 9]>
+	      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+	      <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+	    <![endif]-->
+		
+		<script 
+			src="/static/js/libraries/jquery-1.9.0.js"
+			type="text/javascript" >
+		</script>
+		
+		<script type="text/javascript">
+			//Call all the user's stuff ... display their details ...
+			//and the review requests they've been given.
+			
+			function edit_profile() {
+				window.location = "/edit/"+"$data.login"
+			}
+			
+			// Called when someone sends a submission
+			function submit_review_request(){
+				// Get the form data: Abstract, Title, etc.
+				submission = jQuery("#submission").serializeArray()
+				// Identify it -- this isn't in the form
+				submission.push({"name":"login", "value":"$data.login"})
+
+				jQuery.post("/submit",
+					JSON.stringify(submission),
+					function () {
+						window.location = "/dashboard/"+"$data.login"
+					}
+				)
+				// Works because it takes a second to send the alert email
+				jQuery("#submission_button").attr("value","Submitted!")																																
+				jQuery("#submission_button").css("background-color",
+												 "limegreen")
+			}
+			
+			// Called when someone says if they can do a review or not
+			function response(ix, response){
+				data = {}
+				$for i, r in enumerate(requests):
+					if(ix == $i){
+						data["id"] = "$requests[i].id"
+					}
+					data["response"] = response
+				
+				jQuery.post("/respond/"+"$data.login",
+					JSON.stringify(data),
+					function () {
+						window.location = "/dashboard/"+"$data.login"
+					}
+				)
+			}
+			
+			// Called when you click a 'view' button in the inbox
+			function display_request(ix){
+				
+				// This setup took some thinking -- it's pretty hard to pass
+				// values back and forth between python and javascript.
+				// It wasn't possible just to do requests[ix], for example,
+				// but 'i' is a python variable since it comes from the loop
+				$for i, r in enumerate(requests):
+					if(ix == $i){
+					//alert(ix == $i)
+					jQuery("#request_title").text("$requests[i].title")
+					jQuery("#request_abstract").text("$requests[i].abstract")
+					
+					//jQuery("#request_notes").text("requests[i].notes")
+					
+					jQuery("#request_timeline").text("Can you review this paper within "+"$requests[i].timeline"+" days?")
+					jQuery("#request_timeline").css("font-weight","bold")
+					jQuery("#request_buttons").show()
+					jQuery("#yes_button").attr('onclick','response($i, "yes")')
+					jQuery("#no_button").attr('onclick','response($i, "no")')
+								
+					}
+			}
+			
+			function display_response(ix){
+				// You've got a reviewer! It is:
+				x=0
+			}
+			
+			function display_review_review(ix){
+				// What did you think of your recent review?
+				x=0
+			}
+			
+			function display_reminder(ix){
+				// You've got a deadline in a day, 
+				// OR, you've got a reviewer!
+				x=0
+			}
+
+			// Prepares the inbox
+			jQuery(document).ready(function () {
+				//milestone="$data.milestone"
+				//ms = jQuery("option[value='"+milestone+"']")
+				//ms.attr('selected', 'selected')
+				
+				//
+				// CHECK FOR REVIEW REQUESTS TO THIS PERSON!
+				//
+				
+				jQuery("#request_buttons").hide()
+				
+				
+				$if requests:
+					
+					jQuery("#request_alert").append("<h4>You have some new\
+					 								messages.</h4>")
+					jQuery("#request_alert").css("color", "blue")
+					
+					
+				$else:
+					jQuery("#request_alert").append("<h4>You do not have any\
+					 				reviews to respond to right now.</h4>")
+					
+
+			})
+			
+			
+		</script>
+	</head>
+	
+	<body style="background-color:white;
+				 "
+		>
+		
+		<nav class="navbar navbar-default navbar-fixed-top" 		
+		 	 role="navigation"
+			 style="font-weight:bold"
+		>
+			<p class="navbar-text">
+				&nbsp; $data.name
+				&nbsp; ($data.login)
+				&nbsp; $data.email
+				
+			</p>
+			
+			<button type="button"
+					class="btn btn-default navbar-btn navbar-right"
+					onclick="edit_profile()"
+			>
+				Edit Profile
+			</button>
+			
+			<p class="navbar-text navbar-right" >
+				Year $data.year &nbsp; 
+				Heinz College &nbsp; 
+			</p>
+			
+		</nav>
+		
+		
+		<!-- Container, profile, submit, and accept-->
+		<div id="container"
+			 style="margin:auto;
+					height:600px;
+					margin-top:50px;
+					border:10px solid white;
+					"
+			>
+			<div id="review_notice_container"
+				 class="col-md-12"
+				 style="height:300px;
+						background-color:white;
+						border:10px solid lightgray;
+						"
+				>
+			
+				<div id="request_alert"
+					 style="width:95%"
+				>
+					<div style="float:right;
+								font-weight:bold;
+								font-size:14pt;
+								color:black
+								">
+						Inbox
+					</div>
+				</div>
+			
+				<div class="col-md-9"
+					 id="request_display"
+				>
+					<div class="col-md-7">
+						<div id="request_title"
+							 class="col-md-12"
+							 style="font-weight:bold;
+							        height:20px"
+						></div>
+						<div id="request_abstract"
+							 class="col-md-12"
+							 style="height:150px"
+						></div>
+					</div>
+			
+				<div class="col-md-5">
+					<div id="request_notes"
+						 class="col-md-12"
+						 style="height:150px"
+					></div>
+				</div>
+							
+				<!-- The bottom row -->
+				<div class="col-md-12"
+					 id="response_button_bar"
+					 style="font-weight:bold;
+							top:10px;
+							float:right;
+							"
+				>
+					<div id="request_timeline"
+						 class="col-md-6"
+						 style="font-size:14pt"
+					>
+					</div>
+					
+				<!--
+					<div id="request_buttons">
+						<input type="button"
+							   class="btn btn-primary"
+							   value="Yes, I can review this paper."
+							   onclick="yes_response()"
+							   style="background-color:limegreen;
+									"
+						>
+						<input type="button"
+							   class="btn btn-primary"
+							   value="No, I don't have time now"
+							   onclick="no_response()"
+							   style="background-color:red"
+						>
+					</div>
+				-->
+				
+				<div id="request_buttons">
+					<input id="yes_button"
+						   type="button"
+						   class="btn btn-primary"
+						   value="Yes, I can review this paper."
+						   style="background-color:limegreen;
+								"
+					>
+					<input id="no_button"
+						   type="button"
+						   class="btn btn-primary"
+						   value="No, I don't have time now"
+						   style="background-color:red"
+					>
+				</div>
+					
+				</div>
+				</div> <!-- ? -->
+				
+				<div class="col-md-3"
+					 style="height:240px;
+							"
+				>
+					<div style="height:10px"></div>
+					
+				<!-- TO BE LISTED: requests, alerts, reviews, deadlines, 
+					possibly completions. See if any of them can be 
+					consolidated. (Probably best on paper.)
+				-->
+					<!-- LIST THE REQUESTS -->
+					<div>
+						$for i, r in enumerate(requests):
+							<div class="well well-sm"
+								 style="margin:0"
+							>
+								$if len(r.title) < 25:
+									$r.title
+								$else:
+									$r.title[:25] ...
+								<input class="btn btn-primary"
+									   style="width:60px;
+											  height:30px;
+											  float:right;
+											 "
+									   value="View"
+									   onclick="display_request($i)"
+								>	
+							
+							</div>
+					</div>
+					
+					
+
+
+
+
+				</div>
+				
+			</div>
+			
+			<!--Spacer-->
+			<div style="height:10px;"
+				 class="col-md-12"
+			>
+			</div>
+
+			<!--
+			<div class="col-md-12"
+				 id="lower_half"
+				 style="border:10px solid lightgray;
+						height:260px;
+						"
+			>
+			-->
+		
+				<div id="submission_container"
+					 class="col-md-8"
+					 style="background-color:white;
+							border:10px solid lightgray;
+							height:250px;
+							"
+					>
+			
+			
+					<form style="left:20px;
+								 position:absolute
+								"
+						  id="submission"
+						  class="col-md-12"
+						  role="form"
+					>
+						<h4>Submit A Review Request</h4>
+						<!--First col: Title and Abstract-->
+						<div class="col-md-7">
+							<input
+								class="col-md-12"
+								type="text"
+								name="title"
+								placeholder="Title"
+							>
+							<p>
+							<textarea
+								class="col-md-12"
+								style="height:150px
+									   "
+								name="abstract"
+								placeholder="Abstract"
+							></textarea>
+					
+						</div>
+				
+						<!-- Second col: notes, timeline, and button-->
+						<div class="col-md-5">
+					
+							<textarea
+								class="col-md-12"
+								style="height:120px"
+								name="notes"
+								placeholder="Notes, e.g. things to focus on."
+							></textarea>
+					
+							<div class="row">
+								<div class='col-md-7'
+									 style="padding-right:0px"
+								>
+									I would like this back in
+								</div>
+								
+						    	<input
+									class="col-md-3"
+									type="number"
+									name="timeline"
+									value="7"
+									style="width:70px;
+										  "
+								>
+								<div class='col-md-1'>
+									days
+								</div>
+							</div>
+					
+							<input
+								id="submission_button"
+								type="button"
+								class="btn btn-primary col-md-12"
+								onclick="submit_review_request()"
+								style="float:right"
+								value="Send Review Request"
+							>
+
+						</div>
+			
+					</form>
+								
+				</div> <!-- Closes "submission_container"-->
+			
+				<div class="col-md-4"
+					 style="height:250px;
+							border:10px solid lightgray;
+							font-weight:bold;
+							"
+				>
+					<div style="height:10px"></div>
+					<div class="col-md-6">
+						
+						<div style="font-size:16px">
+							Expertise:
+						</div>
+						<p> 
+						$data.expertise
+		
+						<p>
+					</div>
+					<div class="col-md-6"
+						 style="position:relative"
+					>
+						<div> Submitted: 
+							<div style="float:right">
+								$data.submitted papers
+							</div>
+						</div>
+		
+						<p>	
+						<div> Reviewed: 
+							<div style="float:right">
+								$data.reviewed papers
+							</div>
+						</div>
+		
+						<p>	
+						<div> Passes: 
+							<div style="float:right">
+								$data.passes papers
+							</div>
+						</div>
+		
+						<p>	
+						<div> Dropped: 
+							<div style="float:right">
+								$data.dropped papers
+							</div>
+						</div>
+					</div>
+					<div style="margin-left:140px;
+								margin-top:140px;
+								position:fixed;
+								"
+					>
+						<img src="/static/images/heinz.png"
+						/>
+					</div>
+				
+		  	<!-- </div> </div> Closes ... the bottom-row-->
+		</div><!-- closes 'container' -->
+
+	</body>
+
+</html>

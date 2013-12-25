@@ -8,11 +8,11 @@ DROP TABLE review_review;
 
 CREATE TABLE person (
 	--ID SERIAL PRIMARY KEY,
-	id char(30) PRIMARY KEY, -- login name for the system (no password)
-	name char(50),		-- The name that appears in system emails etc.
-	email char(50),
+	id CHAR(30) PRIMARY KEY, -- login name for the system (no password)
+	name CHAR(50),		-- The name that appears in system emails etc.
+	email CHAR(50),
 	year INTEGER, -- year in the program
-	milestone char(20), -- None, 1st Paper, 2nd Paper, or Proposal
+	milestone CHAR(20), -- None, 1st Paper, 2nd Paper, or Proposal
 	expertise TEXT, -- statistics, economics, IS, etc. Comma delimited.
 	
 	submitted INTEGER, -- num papers submitted
@@ -24,15 +24,15 @@ CREATE TABLE person (
 	active_submissions INTEGER, -- number of submissions you have out
 	
 	started TIMESTAMP, -- profile creation date
-	last_review TIMESTAMP
+	last_review TIMESTAMP,
 	
-	enabled BOOLEAN, -- 1/0 for are they 1) a student, and 2) haven't dropped 
+	enabled BOOLEAN -- 1/0 for are they 1) a student, and 2) haven't dropped 
 					-- a review recently
 );
 
 CREATE TABLE paper (
 	id SERIAL PRIMARY KEY,
-	author char(30), -- author's id
+	author CHAR(30), -- author's id
 	title TEXT,
 	abstract TEXT,
 	requested_expertise TEXT,
@@ -42,64 +42,68 @@ CREATE TABLE paper (
 );
 
 CREATE TABLE assignment (
-	submission INT, -- The id of the related submission
-	assigned_reviewer char(30),
-	reviewer char(30),
+	id SERIAL PRIMARY KEY,
+	paper INT, -- The id of the related submission
+	reviewer CHAR(30),			-- finally accepted
 	candidates TEXT, -- list of next possibilities
 	kind CHAR(10), -- jr/sr
-	active BOOLEAN,
-	accepted BOOLEAN,
-	completed BOOLEAN
+	accepted BOOLEAN, --by a reviewer
+	completed BOOLEAN --by a reviewer
 );
 
 
-CREATE TABLE active_submission (
+CREATE TABLE finished_paper (
 	-- anything?
-) INHERITS (submission);
+) INHERITS (paper);
+
+CREATE TABLE finished_assignment (
+	-- anything?
+) INHERITS (assignment);
+
 
 -- Sits around in the box of an active reviewer. 
 -- They signal the review is finished by clicking it.
 CREATE TABLE finished (
-	reviewer TEXT,
-	requester TEXT
+	reviewer CHAR(30),
+	requester CHAR(30)
 );
 
 CREATE TABLE alert (
-	recipient TEXT, -- the intended recipient
+	person CHAR(30), -- the intended recipient
 	message TEXT, -- either 'you have a reviewer' or 'you have a review due'
 	reveal_if_after DATE -- when it should be sent to the inbox
 );
 
 CREATE TABLE review (
-	ID SERIAL PRIMARY KEY,
-	reviewer TEXT,
-	author TEXT,
-	title TEXT,
-	returned TIMESTAMP,
-	on_time INTEGER -- 1 for yes, 0 for no .. they must have booleans though
-	--tf BOOLEAN
+	id SERIAL PRIMARY KEY,
+	reviewer CHAR(30), -- their id
+	author CHAR(30),   -- paper's author's id
+	title TEXT,		   -- of the paper
+	returned TIMESTAMP,-- 
+	on_time BOOLEAN
 	-- CONTENT, NOTES, UPLOAD IT, ETC.
 	
-	-- FEATURES OF THE REVIEWERS. As well. Their -- expertise, timing, and ...
+	-- FEATURES OF THE REVIEWERS WHEN they review
+	-- As well. Their -- expertise, timing, and ...
 	-- milestone, I think.
 );
 
 CREATE TABLE review_review (
-	ID SERIAL PRIMARY KEY,
-	submission INTEGER, -- the ID for the submission
-	review INTEGER, -- the ID for the review
+	id SERIAL PRIMARY KEY,
+	paper_id INTEGER, -- the ID for the submission
+	review_id INTEGER, -- the ID for the review
 	satisfaction INTEGER -- 1-7 satisfaction Likert.
 );
 
 
--- CREATE TABLE reviewer_submission (
+-- CREATE TABLE person_paper (
 -- 	reviewer TEXT,
 -- 	submission INTEGER,
 -- );
 -- 
 -- 
 -- -- necessary to 
--- CREATE TABLE reviewer_review (
+-- CREATE TABLE person_review (
 -- 	reviewer TEXT,
 -- 	submission INTEGER,
 -- );

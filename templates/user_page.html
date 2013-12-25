@@ -1,4 +1,4 @@
-$def with (data, requests)
+$def with (person, requests)
 <html>
 	<head>
 		
@@ -32,7 +32,7 @@ $def with (data, requests)
 			//and the review requests they've been given.
 			
 			function edit_profile() {
-				window.location = "/edit/"+"$data.login"
+				window.location = "/edit/"+"$person.id"
 			}
 			
 			// Called when someone sends a submission
@@ -40,12 +40,12 @@ $def with (data, requests)
 				// Get the form data: Abstract, Title, etc.
 				submission = jQuery("#submission").serializeArray()
 				// Identify it -- this isn't in the form
-				submission.push({"name":"login", "value":"$data.login"})
+				submission.push({"name":"id", "value":"$person.id"})
 
 				jQuery.post("/submit",
 					JSON.stringify(submission),
 					function () {
-						window.location = "/dashboard/"+"$data.login"
+						window.location = "/dashboard/"+"$person.id"
 					}
 				)
 				// Works because it takes a second to send the alert email
@@ -63,10 +63,10 @@ $def with (data, requests)
 					}
 					data["response"] = response
 				
-				jQuery.post("/respond/"+"$data.login",
+				jQuery.post("/respond/"+"$person.id",
 					JSON.stringify(data),
 					function () {
-						window.location = "/dashboard/"+"$data.login"
+						window.location = "/dashboard/"+"$person.id"
 					}
 				)
 			}
@@ -151,9 +151,9 @@ $def with (data, requests)
 			 style="font-weight:bold"
 		>
 			<p class="navbar-text">
-				&nbsp; $data.name
-				&nbsp; ($data.login)
-				&nbsp; $data.email
+				&nbsp; $person.name
+				&nbsp; ($person.id)
+				&nbsp; $person.email
 				
 			</p>
 			
@@ -165,7 +165,7 @@ $def with (data, requests)
 			</button>
 			
 			<p class="navbar-text navbar-right" >
-				Year $data.year &nbsp; 
+				Year $person.year &nbsp; 
 				Heinz College &nbsp; 
 			</p>
 			
@@ -236,24 +236,7 @@ $def with (data, requests)
 					>
 					</div>
 					
-				<!--
-					<div id="request_buttons">
-						<input type="button"
-							   class="btn btn-primary"
-							   value="Yes, I can review this paper."
-							   onclick="yes_response()"
-							   style="background-color:limegreen;
-									"
-						>
-						<input type="button"
-							   class="btn btn-primary"
-							   value="No, I don't have time now"
-							   onclick="no_response()"
-							   style="background-color:red"
-						>
-					</div>
-				-->
-				
+
 				<div id="request_buttons">
 					<input id="yes_button"
 						   type="button"
@@ -423,7 +406,7 @@ $def with (data, requests)
 							Expertise:
 						</div>
 						<p> 
-						$data.expertise
+						$person.expertise
 		
 						<p>
 					</div>
@@ -432,28 +415,28 @@ $def with (data, requests)
 					>
 						<div> Submitted: 
 							<div style="float:right">
-								$data.submitted papers
+								$person.submitted papers
 							</div>
 						</div>
 		
 						<p>	
 						<div> Reviewed: 
 							<div style="float:right">
-								$data.reviewed papers
+								$person.reviewed papers
 							</div>
 						</div>
 		
 						<p>	
 						<div> Passes: 
 							<div style="float:right">
-								$data.passes papers
+								$person.passes papers
 							</div>
 						</div>
 		
 						<p>	
 						<div> Dropped: 
 							<div style="float:right">
-								$data.dropped papers
+								$person.dropped papers
 							</div>
 						</div>
 					</div>

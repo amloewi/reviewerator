@@ -1,6 +1,7 @@
 import web
 import datetime
 from multisort import multisort #doesn't HAVE to be in a separate file
+import copy
 # All taken verbatim from 
 # http://stackoverflow.com/questions/9272257/how-can-i-send-email-using-python?rq=1
 # As are the contents of "email_notice()"
@@ -22,8 +23,6 @@ from smtplib         import SMTP_SSL
 # 				   password='rWV1ucM1sW-BMFTz4LNTMQsTVW',
 #				   sslmode='require')
 
-DEVELOPMENT = False
-
 
 db = web.database(dbn='postgres',
 					user='alexloewi',
@@ -31,45 +30,37 @@ db = web.database(dbn='postgres',
 					db='alexloewi')
 
 def users():
-	return db.select('reviewer')
+	return db.select('person')
 
-def create_user(login):
+def create_user(id):
 	now = datetime.datetime.now()
-	db.insert('reviewer', login=login,
-						  reviewed=0,
-						  submitted=0,
-						  passes=0,
-						  dropped=0,
-						  useful=0,
-						  active_requests=0,
-						  active_submissions=0,
-						  started=now,
-						  last_review=now)
+	db.insert('peron', id=id,
+					   reviewed=0,
+					   submitted=0,
+					   passes=0,
+					   dropped=0,
+					   useful=0,
+					   active_requests=0,
+					   active_submissions=0,
+					   started=now,
+					   last_review=now)
 	
-def get_user_data(login):
-	return db.where('reviewer', login=login)[0]
+def get_user_data(person):
+	return db.where('person', id=id)[0]
 
 def set_user_data(data):
 	# Dunno WHY this call works -- just gotta trust stkx.
 # http://stackoverflow.com/questions/13521890/error-with-update-with-web-py
 	# Documentation, but it wasn't as useful:
 	# http://webpy.org/docs/0.3/api#web.db
-	db.update('reviewer', where="login=$login", vars=data, **data)
+	db.update('person', where="id=$id", vars=data, **data)
 
-def get_user_requests(login):
+def get_user_requests(id):
 	'''Finds all active review requests assigned a particular reviewer.
 	Called when the dashboard is rendered, to populate the request window.'''
 	
-	# 'nobody' is used because it's apparently hard to select by something
-	# with a None (NULL) value.
-	r1 = list(db.where('submission', active=1, assigned_reviewer_1=login, 
-												reviewer_1='nobody'))
-	r2 = list(db.where('submission', active=1, assigned_reviewer_2=login,
-												reviewer_2='nobody'))
-												
-	# BUT -- THIS WILL APPEAR FOR THEM, EVEN IF THEY REJECTED IT.										
-	
-	return(r1+r2)
+	rqs = list(db.where('assignment', reviewer=id))	
+	return(rqs)
 
 
 def email_notice(email, message, author=None, reviewer=None):
@@ -129,51 +120,22 @@ def email_notice(email, message, author=None, reviewer=None):
 	    s.quit()
 
 
-
-
-
-def request_review(submission, rvrs, kind, name_only):
-	"""
-
-	Used in 'process_submission' and 'reject_submission'
-	"""
-	print 'IN REQUEST REVIEW'
-	# Take the first, pass the list with the request -- keeping the 
-	# first person on it is a way to tell which list they came from
-	if name_only:
-		r = db.where('reviewer', login=rvrs[0])[0]
-		print rvrs
-	else:
-		r = rvrs[0]
-		rvrs = [str(r.login) for r in rvrs]
-		print rvrs
+def request_review(reviewer, paper, kind):
+	"""Send a request to a person. Takes the person and paper OBJECTS.
 	
-	# Stick these lists on the submission itself, to
-	# move through as people 'pass'
-	# and as a string, cause it's stored in SQL
-	submission[kind+'_list'] = str(rvrs).replace("'","")[1:-1]
-	print "HELLO! ", str(rvrs[1:-1])
-		
-	# Let the selected reviewers know
-	if not DEVELOPMENT:
-		email_notice(r.email, "request", author=submission['login'])
-
-	num = "1" if kind == "jr" else "2"
-	submission["assigned_reviewer_"+num] = r.login
+	Either they already exist, or you can call them right before. It's cleaner than having a toggle for 'just a name, or the whole thing?'
+	"""
 	
-	# Notch one up for the reviewers
-	increment(r, 'active_requests')
-
-
-
+	email_notice(reviewer.email, 'request', author=paper.author)
+	increment(reviewer, 'active_requests')
+	# Is that really ALL?
 
 
 						
-def increment(rvr, field, name_only=False):
-	if name_only:
-		rvr = db.where('reviewer', login=rvr)[0]
-	rvr[field] += 1
-	set_user_data(rvr)
+def increment(person, field, value=1):
+	"""Takes the person OBJECT. Increments their 'field' attribute by one. """
+	person[field] += value
+	set_user_data(person)
 
 # The functions used in multisort -- the priorities for choosing a 
 # reviewer
@@ -191,7 +153,7 @@ rev  = [False,         True,        False]
 fxns = [request_count, submit_diff, recent_review]
 
 
-def process_submission(data):
+def process_submission(paper):
 	'''Called when a review request is submitted. Increments the 
 	number of reviews requested in the reviewer\'s profile, then 
 	selects two (currently) reviewers for them, and files the submission.
@@ -199,112 +161,140 @@ def process_submission(data):
 	And this emails the chosen reviewers, to let them know.
 	'''
 	
-	# Notch one up for the submitter
-	increment(data['login'], 'submitted', name_only=True)
-	
 	# Choose reviewers, based on the ratio AND CURRENT LOAD
-	rvrs = db.where('reviewer', enabled=1)
+	rvrs = db.where('person', enabled=1)
 	if rvrs:
 		# Can't review your own paper
-		rvrs = [r for r in list(rvrs) if r.login != data['login']]
+		rvrs = [r for r in list(rvrs) if r.id != paper['author']]
 		
+		########################### Should only need to change this part.
 		# Split by seniority
-		rdict = {"jr":[], "sr":[]}
-		for r in rvrs:
-			if r.milestone == "None yet" or r.milestone == "1st Paper":
-				rdict['jr'].append(r)
-			else: # "2nd Paper" or "Proposal"
-				rdict['sr'].append(r)
+		kinds = ['jr', 'sr']
+		features = [["None yet", "1st Paper"],
+					["2nd Paper", "Proposal"]]
+		###########################
 		
+		rdict = {k:[] for k in kinds}
+		# For each reviewer
+		for r in rvrs:
+			# Look at all the kinds available
+			for i in range(len(kinds)):
+				# If the rvr's milestone falls into that category,
+				if r.milestone in features[i]:
+					# Sort them accordingly.
+					rdict[kinds[i]].append(r)
+				
 		# Do the multi-parameter prioritized sort
 		# fxns is (are) defined immediately above
-		jr_list = multisort(rdict['jr'], fxns, rev)
-		sr_list = multisort(rdict['sr'], fxns, rev)
+		lists = [multisort(rdict[k], fxns, rev) for k in kinds]
 		
-		request_review(data, jr_list, 'jr', name_only=False)
-		request_review(data, sr_list, 'sr', name_only=False)
-	
-		data['reviewer_1'] = 'nobody'
-		data['reviewer_2'] = 'nobody'
-		db.insert('submission', **data)
+		asmt = {"paper": 		paper.id,
+				"accepted":		0,
+				"completed":	0}
+
+		n = len(kinds)
+		asmts = [copy.copy(asmt) for i in range(n)]
+		for i, a in enumerate(asmts):
+			# Just the names, from the corresponding list
+			candidates = [p.id for p in lists[i]]
+			# Cycle through the other candidates, and stick them on the end
+			# as backups, even though they're a different 'kind.' 
+			# This could theoretically result in someone having to reject
+			# something multiple times, but to avoid that seems 
+			# complicated and unnecessary.
+			for j in range(i+1,n)+range(i):
+				candidates += [p.id for p in lists[j]] 
+			# The first person from the corresponding list
+			a["reviewer"] = candidates[0]
+			# One quoteless non comma seperated string, for easy splitting.
+			# Needs to be this way cause it's stored in sql.
+			candidates = " ".join(candidates[1:])
+			a["candidates"] = candidates
+			a["kind"] = kinds[i]
+			
+			request_review(paper, lists[i][0])
+			db.insert('assignments', **a)
+		
+		# Notch one up for the submitter
+		author = db.where('person', id=paper['author'])[0]
+		increment(author, 'submitted')
+		increment(author, 'active_submissions')
+		# And toss in the paper.
+		db.insert('paper', **paper)
 		
 	else:
 		# nobody's signed up -- hope that's an error
 		print "never got here"
 	
 
-def accept_submission(name, ID):
+def accept_submission(rvr_id, paper_id):
 	# Get the submission itself
-	request = db.where('submission', ID=ID)[0]
-	author = db.where('reviewer', login=request['login'])[0]
-	rvr = get_user_data(name)
+	paper = db.where('paper', paper_id=paper_id)[0]
+	author = db.where('person', id=paper.author)[0]
+	rvr = get_user_data(rvr_id)
 	
-	# Give the review to that reviewer FIRST OR SECOND?
-	# (I'd like this to be more general, later)
-	if rvr.milestone == "None yet" or rvr.milestone == "1st Paper":
-		num = "1"
-	else:
-		num = "2"
+	asmts = [a for a in db.where('assignment', paper=paper.id)]
+	for a in asmts:
+		if a.reviewer == rvr_id:
+			a['accepted'] = 1
+			db.update('assignment', where="id=$id" vars=a, **a)
+			break	 		
 	
-	request['reviewer_'+num] = rvr.login
-	db.update('submission', where="login=$login", vars=request, **request)
-	#	log an 'active' for them
-	increment(rvr, 'active_requests')
 	#	email the author
-	email_notice(author.email, 'accepted', reviewer=rvr['name'])
+	email_notice(author.email, 'accepted', reviewer=rvr.name)
+	
 	# 	set a reminder with the deadline
-	td = datetime.timedelta(days=request.timeline-1)
+	td = datetime.timedelta(days=paper.timeline-1)
 	now = datetime.datetime.now()
-	reminder = {'recipient': rvr.login, 
+	reminder = {'recipient': rvr.id, 
 				'message': "You have a review for "\
 							+author.name+" due in 1 day!",
 				'reveal_if_after':now+td}
 	db.insert('alert', **reminder)
 	#	make a 'finish' object
-	finished = {'reviewer': rvr.login,
-				'requester': author.login
+	finished = {'reviewer': rvr.id,
+				'requester': author.id
 				}
 	db.insert('finished', **finished)
-
-	# alert the author (also an alert?)	
-	# else?
 	
 
 	
-def reject_submission(name, ID):
+def reject_submission(rvr_id, paper_id):
 	# notch up the 'passes' for the rejector
-	print 'was this called at all?'
-	increment(name, 'passes', name_only=True)
-	# get the lists ... BUT WHICH ONE!?!
-	request = db.where('submission', ID=ID)[0]
-	next_jr = request.jr_list.split()
-	next_sr = request.sr_list.split()
-	print "next_jr", next_jr
-	print "next_sr", next_sr
-
-	if next_jr[0] and name == next_jr[0]:
-		print 'in jr!'
-		if len(next_jr) > 1:
-			request_review(next_jr[1], next_jr[1:], 'jr', name_only=True)
-		elif len(next_sr) > 1:
-			request_review(next_sr[1], next_sr[1:], 'sr', name_only=True)
-	elif next_sr and name == next_sr[0]:
-		print 'in sr!'
-		if len(next_sr) > 1:
-			request_review(next_sr[1], next_sr[1:], 'sr', name_only=True)
-		elif len(next_sr) > 1:
-			request_review(next_jr[1], next_jr[1:], 'jr', name_only=True)
+	paper = db.where('paper', id=paper_id)[0]
+	rvr = db.where('person', id=rvr_id)[0]
+	increment(rvr, 'passes')
+	increment(rvr, 'active_requests', -1) #i.e. decrement
+	
+	asmt = db.where('assignment', paper=paper.id, reviewer=rvr.id)[0]	
+	new = copy.copy(asmt)
+	
+	asmt.accepted = 0
+	candidates = asmt.candidates.split()
+	if candidates:
+		new.reviewer = candidates[0]
+		new.candidates = candidates[1:]
+		db.insert('assignment', **new)
+		request_review(rvr, paper, asmt.kind)
+	
+		# SYNTAX?
+		# log.delete('exercise', where="id=$id", vars=locals())
+		db.delete('assignment', where="id=$id", vars=asmt, **asmt)
+		db.insert('finished_assignment', asmt)
+			
 	else:
 		#NObody was left ... tell the author.
-		author = db.where('reviewer', login=request.login)[0]
+		author = db.where('person', id=paper.author)[0]
 		email_notice(author.email, "apology")
 		print 'only got here!'
-		
+	
+	
+	
 	
 	
 	
 def test_insert(person):
-	db.insert('reviewer', **person)
+	db.insert('person', **person)
 
 def nuclear_option():
 	for table in ["reviewer", "submission", "review", "review_review"]:

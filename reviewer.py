@@ -29,25 +29,25 @@ class users:
 	
 	def GET(self):
 		users = list(model.users())
-		user_logins = [u['login'] for u in users]
-		return json.dumps(user_logins)
+		user_ids = [u['id'] for u in users]
+		return json.dumps(user_ids)
 			
 			
 class show_dashboard:
 	
-	def GET(self, login): 
+	def GET(self, id): 
 		# It gets 'login' from the (.*) regex.
-		data = model.get_user_data(login)
-		requests  = model.get_user_requests(login)
-		#alerts   = model.get_user_alerts(login)
-		#finished = model.get_user_finished(login)
-		#feedback = model.get_user_feedback(login)		
-		return render.user_page(data, requests) #, alerts, finished, feedback)
+		person = model.get_user_data(id)
+		requests  = model.get_user_requests(id)
+		#alerts   = model.get_user_alerts(id)
+		#finished = model.get_user_finished(id)
+		#feedback = model.get_user_feedback(id)		
+		return render.user_page(person, requests) #, alerts, finished, feedback)
 		
 		
 class edit_user:
 
-	def POST(self, name):
+	def POST(self, id):
 		# Expects an Array of name, year, email, etc.
 		data = web.data()
 		if data:
@@ -55,18 +55,17 @@ class edit_user:
 			data = {d["name"]:d["value"] for d in data} #un-serializeArray
 			model.set_user_data(data)
 			
-	def GET(self, login):
-		data = model.get_user_data(login)
-		return render.edit_profile(login, data)
+	def GET(self, id):
+		person = model.get_user_data(id)
+		return render.edit_profile(id, person)
 		
 		
 class create_user:
 
 	def POST(self):
-		login = web.data()
-		if login:
-			login = json.loads(login)
-			model.create_user(login)
+		id = web.data()
+		id = json.loads(id)
+		model.create_user(id)
 
 
 class submit_request:
@@ -82,17 +81,17 @@ class submit_request:
 		
 class respond:
 	
-	def POST(self, name):
+	def POST(self, rvr_id):
 		
 		data = web.data()
 		# Is the conditional necessary?
 		if data:
 			data = json.loads(data)
-			ID = data['id']
+			paper_id = data['id']
 			if data['response'] == 'yes':
-				model.accept_submission(name, ID)
+				model.accept_submission(rvr_id, paper_id)
 			elif data['response'] == 'no':
-				model.reject_submission(name, ID)
+				model.reject_submission(rvr_id, paper_id)
 			else:
 				pass
 				# Error of some kind

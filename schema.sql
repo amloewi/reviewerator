@@ -37,6 +37,7 @@ CREATE TABLE paper (
 	title TEXT,
 	abstract TEXT,
 	requested_expertise TEXT,
+	paper BYTEA, -- later
 	notes TEXT,
 	timeline INTEGER, -- number of days requested for turnaround
 	date TIMESTAMP -- date of submission
@@ -66,11 +67,18 @@ CREATE TABLE finished_assignment (
 -- Sits around in the box of an active reviewer. 
 -- They signal the review is finished by clicking it.
 CREATE TABLE finished (
-	reviewer VARCHAR(30),
-	requester VARCHAR(30)
+	id SERIAL PRIMARY KEY, -- need to find it to remove it
+	paper_id INT,
+	reviewer_id VARCHAR(30),
+	author_id VARCHAR(30),
+	reviewer_name VARCHAR(50),
+	author_name VARCHAR(50),
+	due TIMESTAMP,
+	title TEXT
 );
 
 CREATE TABLE alert (
+	id SERIAL PRIMARY KEY,
 	person VARCHAR(30), -- the intended recipient
 	message TEXT, -- either 'you have a reviewer' or 'you have a review due'
 	reveal_if_after TIMESTAMP -- when it should be sent to the inbox
@@ -81,6 +89,8 @@ CREATE TABLE review (
 	reviewer VARCHAR(30), -- their id
 	author VARCHAR(30),   -- paper's author's id
 	title TEXT,		   -- of the paper
+	reviewer_expertise TEXT, -- this will change over time, so keep a copy here
+	review BYTEA, -- later
 	returned TIMESTAMP,-- 
 	on_time BOOLEAN
 	-- CONTENT, NOTES, UPLOAD IT, ETC.
@@ -92,9 +102,11 @@ CREATE TABLE review (
 
 CREATE TABLE review_review (
 	id SERIAL PRIMARY KEY,
+	author VARCHAR(30),
 	paper_id INTEGER, -- the ID for the submission
 	review_id INTEGER, -- the ID for the review
-	satisfaction INTEGER -- 1-7 satisfaction Likert.
+	satisfaction INTEGER, -- 1-7 satisfaction Likert.
+	notes TEXT
 );
 
 

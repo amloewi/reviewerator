@@ -12,6 +12,8 @@ $def with (person, requests, alerts, finished, feedback)
 
 	    <!-- Bootstrap core CSS -->
 	    <link href="/static/dist/css/bootstrap.css" rel="stylesheet">
+		<link href="/static/css/user_page.css" rel="stylesheet">
+	    
 
 	    <!-- Custom styles for this template -->
 	    <!--<link href="grid.css" rel="stylesheet">-->
@@ -86,11 +88,23 @@ $def with (person, requests, alerts, finished, feedback)
 					
 					//jQuery("#request_notes").text("requests[i].notes")
 					
-					jQuery("#request_timeline").text("Can you review this paper within "+"$requests[i].timeline"+" days?")
-					jQuery("#request_timeline").css("font-weight","bold")
-					jQuery("#request_buttons").show()
-					jQuery("#yes_button").attr('onclick','response($i, "yes")')
-					jQuery("#no_button").attr('onclick','response($i, "no")')
+					rt = jQuery("#request_timeline")
+					rt.text("Can you review this paper within\
+					 		"+"$requests[i].timeline"+" days?")
+					rt.css("font-weight","bold")
+					jQuery("#buttons").show()
+					
+					lb = jQuery("#left_button")
+					lb.show()
+					lb.attr('onclick', 'response($i, "yes")')
+					lb.attr("value", "Yes, I can review this paper.")
+					lb.css("background-color", "limegreen")
+					
+					rb = jQuery("#right_button")
+					rb.show()
+					rb.attr('onclick', 'response($i, "no")')
+					rb.attr("value", "No, I don't have time now.")
+					rb.css("background-color", "red")
 								
 					}
 			}
@@ -99,59 +113,112 @@ $def with (person, requests, alerts, finished, feedback)
 				$for i, r in enumerate(alerts):
 					if(ix == $i){
 						jQuery("#request_abstract").text("$alerts[i].message")
+						jQuery("#request_title").text("")
+						jQuery("#request_timeline").text("")
+						
+						// Show a 'close' button
+						jQuery("#buttons").show()
+						jQuery("#left_button").hide()
+						rb = jQuery("#right_button")
+						rb.css("background-color", "blue")
+						rb.attr("value", "Remove Alert")
+						//This is all in the 'if' because I need DOLLAR'i' to 
+						// be evaluated. Passing 'ix' doesn't work.
+						rb.attr("onclick", "remove_alert($i)")
 					}
-				// Show a 'close' button
 			}
 			
-			function display_response(ix){
-				// You've got a reviewer! It is:
-				x=0
+			function remove_alert(ix){
+				$for i, r in enumerate(alerts):
+					if(ix == $i){
+						jQuery.post("/remove/"+"alert",
+						JSON.stringify({"id":"$alerts[i].id"}),
+						function () {
+							window.location = "/dashboard/"+"$person.id"
+						})
+					}
 			}
 			
-			function display_review_review(ix){
+			function display_finished(ix){
+				// Are you finished yet? In the 'finished' object
+				$for i, f in enumerate(finished):
+					if(ix == $i){
+						ra = jQuery("#request_abstract")
+						ra.text("Click below when you're finished with\
+						 		the review of "+"$f.author_name"+"'s paper,\
+								"+"'$f.title'")
+						jQuery("#request_title").text("")
+						jQuery("#request_timeline").text("")
+
+						// Show a 'finished' button
+						jQuery("#buttons").show()
+						jQuery("#left_button").hide()
+						rb = jQuery("#right_button")
+						rb.css("background-color", "blue")
+						rb.attr("value", "I'm finished.")
+						//This is all in the 'if' because I need DOLLAR'i' to 
+						// be evaluated. Passing 'ix' doesn't work.
+						rb.attr("onclick", "submit_review($i)")
+					}
+			}
+			
+			function submit_review(ix){
+				$for i, r in enumerate(finished):
+					if(ix == $i){
+						jQuery.post("/finished",
+						JSON.stringify({"id":"$finished[i].id"}),
+						function () {
+							window.location = "/dashboard/"+"$person.id"
+						})
+					}
+			}
+			
+			function display_feedback(ix){
 				// What did you think of your recent review?
-				x=0
+				// in the 'feedback' object
+				$for i, r in enumerate(feedback):
+					if(ix == $i){
+						
+						
+						// I want: a message
+						// a way to choose 1-7
+						// labels for that (radio buttons?)
+						// a place for notes
+						// and a submit button -- might be it.
+						
+						
+						
+						
+						
+					}
 			}
 			
-			function display_reminder(ix){
-				// You've got a deadline in a day, 
-				// OR, you've got a reviewer!
-				x=0
+			function submit_review_review(ix){
+				x = 0
 			}
+			
 
 			// Prepares the inbox
 			jQuery(document).ready(function () {
-				//ms = jQuery("option[value='"+milestone+"']")
-				//ms.attr('selected', 'selected')
-				
-				//
-				// CHECK FOR REVIEW REQUESTS TO THIS PERSON!
-				//
-				
-				jQuery("#request_buttons").hide()
-				
-				
-				$if requests:
-					
-					jQuery("#request_alert").append("<h4>You have some new\
-					 								messages.</h4>")
-					jQuery("#request_alert").css("color", "blue")
-					
-					
-				$else:
-					jQuery("#request_alert").append("<h4>You do not have any\
-					 				reviews to respond to right now.</h4>")
-					
 
+				// CHECK FOR REVIEW REQUESTS TO THIS PERSON!
+				
+				jQuery("#buttons").hide()
+				
+				ra = jQuery("#request_alert")
+				$if requests:
+					ra.append("<h4>You have some new messages.</h4>")
+					ra.css("color", "blue")
+				$else:
+					ra.append("<h4>You do not have any \
+								reviews to respond to right now.</h4>")
 			})
 			
 			
 		</script>
 	</head>
 	
-	<body style="background-color:white;
-				 "
-		>
+	<body style="background-color:white;">
 		
 		<nav class="navbar navbar-default navbar-fixed-top" 		
 		 	 role="navigation"
@@ -180,29 +247,14 @@ $def with (person, requests, alerts, finished, feedback)
 		
 		
 		<!-- Container, profile, submit, and accept-->
-		<div id="container"
-			 style="margin:auto;
-					height:600px;
-					margin-top:50px;
-					border:10px solid white;
-					"
-			>
+		<div id="container">
 			<div id="review_notice_container"
 				 class="col-md-12"
-				 style="height:300px;
-						background-color:white;
-						border:10px solid lightgray;
-						"
-				>
-			
+			>
 				<div id="request_alert"
 					 style="width:95%"
 				>
-					<div style="float:right;
-								font-weight:bold;
-								font-size:14pt;
-								color:black
-								">
+					<div id="inbox_label">
 						Inbox
 					</div>
 				</div>
@@ -222,46 +274,41 @@ $def with (person, requests, alerts, finished, feedback)
 						></div>
 					</div>
 			
-				<div class="col-md-5">
-					<div id="request_notes"
-						 class="col-md-12"
-						 style="height:150px"
-					></div>
-				</div>
+					<div class="col-md-5">
+						<div id="request_notes"
+							 class="col-md-12"
+							 style="height:150px"
+						></div>
+					</div>
 							
 				<!-- The bottom row -->
-				<div class="col-md-12"
-					 id="response_button_bar"
-					 style="font-weight:bold;
-							top:10px;
-							float:right;
-							"
-				>
-					<div id="request_timeline"
-						 class="col-md-6"
-						 style="font-size:14pt"
+					<div class="col-md-12"
+						 id="response_button_bar"
 					>
+						<div id="request_timeline"
+							 class="col-md-6"
+							 style="font-size:14pt"
+						>
+						</div>
+					
+					<!-- The buttons for sending all -->
+						<div id="buttons">
+							<input id="left_button"
+								   type="button"
+								   class="btn btn-primary"
+								   value="Yes, I can review this paper."
+								   style="background-color:limegreen;
+										"
+							>
+							<input id="right_button"
+								   type="button"
+								   class="btn btn-primary"
+								   value="No, I don't have time now"
+								   style="background-color:red"
+							>
+						</div>	
 					</div>
-					
-
-				<div id="request_buttons">
-					<input id="yes_button"
-						   type="button"
-						   class="btn btn-primary"
-						   value="Yes, I can review this paper."
-						   style="background-color:limegreen;
-								"
-					>
-					<input id="no_button"
-						   type="button"
-						   class="btn btn-primary"
-						   value="No, I don't have time now"
-						   style="background-color:red"
-					>
 				</div>
-					
-				</div>
-				</div> <!-- ? -->
 				
 				<div class="col-md-3"
 					 style="height:240px;
@@ -291,16 +338,15 @@ $def with (person, requests, alerts, finished, feedback)
 									   value="View"
 									   onclick="display_request($i)"
 								>	
-							
 							</div>
 					</div>
 					
 					<div>
-						$for i, r in enumerate(alerts):
+						$for i, a in enumerate(alerts):
 							<div class="well well-sm"
 								 style="margin:0"
 							>
-								Alert
+								$a.message[:20]
 								<input class="btn btn-primary"
 									   style="width:60px;
 											  height:30px;
@@ -310,14 +356,44 @@ $def with (person, requests, alerts, finished, feedback)
 									   value="View"
 									   onclick="display_alert($i)"
 								>	
-							
 							</div>
 					</div>
 					
-
-
-
-
+					<div>
+						$for i, f in enumerate(finished):
+							<div class="well well-sm"
+								 style="margin:0"
+							>
+								Finished? 
+								<input class="btn btn-primary"
+									   style="width:60px;
+											  height:30px;
+											  float:right;
+											  background-color:orange
+											 "
+									   value="View"
+									   onclick="display_finished($i)"
+								>	
+							</div>
+					</div>
+					
+					<div>
+						$for i, f in enumerate(feedback):
+							<div class="well well-sm"
+								 style="margin:0"
+							>
+								Review Your Review! 
+								<input class="btn btn-primary"
+									   style="width:60px;
+											  height:30px;
+											  float:right;
+											  background-color:green
+											 "
+									   value="View"
+									   onclick="display_feedback($i)"
+								>	
+							</div>
+					</div>
 				</div>
 				
 			</div>
@@ -327,22 +403,9 @@ $def with (person, requests, alerts, finished, feedback)
 				 class="col-md-12"
 			>
 			</div>
-
-			<!--
-			<div class="col-md-12"
-				 id="lower_half"
-				 style="border:10px solid lightgray;
-						height:260px;
-						"
-			>
-			-->
 		
 				<div id="submission_container"
 					 class="col-md-8"
-					 style="background-color:white;
-							border:10px solid lightgray;
-							height:250px;
-							"
 					>
 			
 			

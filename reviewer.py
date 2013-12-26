@@ -12,6 +12,8 @@ urls = (
 	'/create_user',			'create_user',
 	'/submit',				'submit_request',
 	'/respond/(.+)',		'respond',
+	'/remove/(.+)',			'remove',
+	'/finished',			'finish_review',
 )
 
 # PROBLEM is: now I gotta change all the ajax calls in the jquery too.
@@ -36,9 +38,8 @@ class users:
 class show_dashboard:
 	
 	def GET(self, id): 
-		# It gets 'login' from the (.*) regex.
-		person = model.get_user_data(id)
-		requests  = model.get_user_requests(id)
+		person   = model.get_user_data(id)
+		requests = model.get_user_requests(id)
 		alerts   = model.get_user_alerts(id)
 		finished = model.get_user_finished(id)
 		feedback = model.get_user_feedback(id)		
@@ -95,6 +96,22 @@ class respond:
 			else:
 				pass
 				# Error of some kind
+				
+class remove:
+	
+	def POST(self, table):
+		id = json.loads(web.data())['id']
+		# log.delete('exercise', where="id=$id", vars=locals())
+		model.db.delete(table, where="id=$id", vars=locals())
+		
+
+class finish_review:
+	
+	def POST(self):
+		# Things to do: 
+		fin_id = json.loads(web.data())['id']
+		model.process_finish(fin_id)
+		
 
 app = web.application(urls, globals())
 

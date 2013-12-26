@@ -60,6 +60,7 @@ def set_user_data(data):
 	# http://webpy.org/docs/0.3/api#web.db
 	db.update('person', where="id=$id", vars=data, **data)
 
+
 def get_user_requests(id):
 	'''Finds all active review requests assigned a particular reviewer.
 	Called when the dashboard is rendered, to populate the request window.'''
@@ -81,34 +82,45 @@ def email_notice(email, message, author=None, reviewer=None):
 
 	# A notice to the reviewer that a review has been requested
 	if message == "request":
-		msg = """Please log in to the PhD Reviewer system to respond to the request from """+author+""".\nMany thanks from the entire PhD community,\nDoctor Heinz
+		msg = """Please log in to the PhD Reviewer system to respond to the request from """+author+""".\n\nMany thanks from the entire PhD community,\nSenator Heinz
 				"""
 		subject = "You have been requested to review a colleague's work"
 	
 	# A notice to the author that a request has been accepted
 	if message == "accepted":
-		msg = """Your request for a review has been accepted by """+reviewer+"""! Please send them a copy of your paper as soon as possible. \nMany thanks from the entire PhD community,\nDoctor Heinz
+		msg = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. \n\nMany thanks from the entire PhD community,\nSenator Heinz
 				"""
 		subject = "Your review request has been accepted!"
 
 	# A notice to the author that a review has been completed
 	if message == "returned":
-		msg = reviewer+"""has completed your review! Please log in to the PhD 			 Review System to accept it. \nMany thanks from the entire PhD community,\nDoctor Heinz
+		msg = reviewer+""" has completed your review! Please log in to the PhD 			 Review System to accept it. \n\nMany thanks from the entire PhD community,\nSenator Heinz
 				"""
 		subject = "Your review has been completed!"
 		
 	# A reminder that the requested return date is approaching
 	if message == "deadline":
-		msg = """Please log in to the PhD Reviewer system to respond to the request. \nMany thanks from the entire PhD community,\nDoctor Heinz
+		msg = """Please log in to the PhD Reviewer system to respond to the request. \nMany thanks from the entire PhD community,\nSenator Heinz
 				"""
 		subject = "There is one day remaining on an active review deadline"
-
-	subject = "[PhDRvr] " + subject
 	
+	# If a 'candidates' list runs dry on an assignment
 	if message == "apology":
-		msg = """We're very sorry, no one was available to fill one of your reviewer spots. Please try again soon. \nDoctor Heinz"""
+		msg = """We're very sorry, no one was available to fill one of your reviewer spots. Please try again soon. \nSenator Heinz"""
 		
 		subject = "One reviewer spot could not be filled"
+		
+	# If you pass the PASS_LIMIT (or maybe other things too?)
+	if message == "disabled":
+		msg = """We're very sorry, but you've rejected too many review requests. Your account will be disabled for """+author+""" days. Feel free to continue submitting papers as soon as you're back."""
+		
+		subject = "Account temporarily disabled"
+	
+	###########
+	# The tag #
+	###########	
+	subject = "[PhDRvr] " + subject
+	
 	
 		# The code below is pulled straight from
 #stackoverflow.com/questions/9272257/how-can-i-send-email-using-python?rq=1
@@ -128,16 +140,16 @@ def email_notice(email, message, author=None, reviewer=None):
 	    s.quit()
 
 
-def request_review(paper, reviewer, kind):
-	"""Send a request to a person. Takes the person object and paper dict.
-	
-	Either they already exist, or you can call them right before. It's cleaner than having a toggle for 'just a name, or the whole thing?'
-	"""
-	
-	email_notice(reviewer.email, 'request', author=paper['author'])
-	increment(reviewer, 'active_requests')
-	# Is that really ALL?
-
+# def request_review(paper, reviewer, kind):
+# 	"""Send a request to a person. Takes the person object and paper dict.
+# 	
+# 	Either they already exist, or you can call them right before. It's cleaner than having a toggle for 'just a name, or the whole thing?'
+# 	"""
+# 	
+# 	email_notice(reviewer.email, 'request', author=paper['author'])
+# 	increment(reviewer, 'active_requests')
+# 	# Is that really ALL? This should probably just be written directly
+# 	# into the places it's used, cause there are only two.
 
 						
 def increment(person, field, value=1):
@@ -227,7 +239,11 @@ def process_submission(paper):
 			a["kind"] = kinds[i]
 			a['expertise'] = lists[i][0].expertise
 			
-			request_review(paper, lists[i][0], kinds[i])
+			#request_review(paper, lists[i][0], kinds[i])
+			
+			email_notice(lists[i][0].email, 'request', author=paper['author'])
+			increment(lists[i][0], 'active_requests')
+			
 			db.insert('assignment', **a)
 		
 		# Notch one up for the submitter
@@ -257,20 +273,25 @@ def accept_submission(rvr_id, paper_id):
 	email_notice(author.email, 'accepted', reviewer=rvr.name)
 	
 	# 	set a reminder with the deadline
-	td = datetime.timedelta(days=paper.timeline-1)
+	alert_td = datetime.timedelta(days=paper.timeline-1)
+	due_td = datetime.timedelta(days=paper.timeline)	
 	now = datetime.datetime.now()
 	reminder = {'person': rvr.id, 
-				'message': "You have a review for "\
+				'message': "DUE SOON: You have a review for "\
 							+author.name+" due in 1 day!",
-				'reveal_if_after':now+td}
+				'reveal_if_after':now+alert_td}
 	db.insert('alert', **reminder)
 	#	make a 'finish' object
-	finished = {'reviewer': rvr.id,
-				'requester': author.id
+	finished = {'paper_id':	   		paper.id,
+				'reviewer_id': 		rvr.id,
+				'author_id':   		author.id,
+				'reviewer_name': 	rvr.name,				
+				'author_name': 		author.name,
+				'due':				now+due_td,
+				'title':	   		paper.title,
 				}
 	db.insert('finished', **finished)
 	
-
 	
 def reject_submission(rvr_id, paper_id):
 	# notch up the 'passes' for the rejector
@@ -286,17 +307,20 @@ def reject_submission(rvr_id, paper_id):
 		rvr.enabled = False
 		rvr.disabled_until = back
 		db.update('person', where="id=$id", vars=rvr, **rvr)
+		email_notice(rvr.email, 'disabled', author=str(PASS_PENALTY))
 	
 	asmt = db.where('assignment', paper=paper.id, reviewer=rvr.id)[0]	
 	new = copy.copy(asmt)
 	
-	asmt.accepted = 0
+	asmt.accepted = False
 	candidates = asmt.candidates.split()
 	if candidates:
 		new.reviewer = candidates[0]
 		new.candidates = candidates[1:]
 		db.insert('assignment', **new)
-		request_review(rvr, paper, asmt.kind)
+		#request_review(rvr, paper, asmt.kind)
+		email_notice(rvr.email, 'request', author=paper.author)
+		increment(rvr, 'active_requests')
 	
 		# SYNTAX?
 		# log.delete('exercise', where="id=$id", vars=locals())
@@ -304,31 +328,59 @@ def reject_submission(rvr_id, paper_id):
 		db.insert('finished_assignment', asmt)
 			
 	else:
-		#NObody was left ... tell the author.
+		# Nobody was left ... tell the author.
 		author = db.where('person', id=paper.author)[0]
 		email_notice(author.email, "apology")
-		print 'only got here!'
-		
+	
 	
 def get_user_alerts(id):
 	alerts = list(db.where('alert', person=id))
 	now = datetime.datetime.now()
 	active = [a for a in alerts if a.reveal_if_after < now]
-	return(active)
-
-
+	return active
 
 
 def get_user_finished(id):
-	finished = list(db.where('finished', reviewer=id))
-	return(finished)
+	finished = list(db.where('finished', reviewer_id=id))
+	return finished 
+		
 	
+def process_finish(fin_id):
+	finish = db.where('finished', id=fin_id)[0]
+	reviewer = db.where('person', id=finish.reviewer_id)[0]
+	author = db.where('person', id=finish.author_id)[0]
+	increment(author, 'active_submissions', -1)
+	increment(reviewer, 'active_requests', -1)
+	increment(reviewer, 'reviewed')
+	email_notice(author.email, 'returned', reviewer=reviewer.name)
+	db.delete('finished', where="id=$id", vars=finish)
+	
+	# Log the old assignment as finished.
+	asmt = db.where('assignment', paper=finish.paper_id,
+								  reviewer=finish.reviewer_id)[0]
+	db.delete('assignment', where="id=$id", vars=asmt)
+	db.insert('finished_assignment', **asmt)
+	# Make a 'review' object (which will maybe later have an attachment)
+	now = datetime.datetime.now()
+	review = {'reviewer': reviewer.id,
+			  'author':   author.id,
+			  'title':	  finish.title,
+			  'reviewer_expertise': reviewer.expertise,
+			  'review': None,
+			  'returned': now,
+			  'on_time': now < finish.due}
+	review_id = db.insert('review', **review)
+	# create and send a satisfaction survey to the author	
+	survey = {'paper_id':   finish.paper_id,
+			  'review_id':  review_id,
+			  'author':		author.id}
+	db.insert('review_review', **survey)			
+	# do a sweep once a day to flush old papers and ... 
+
+
 def get_user_feedback(id):
-	#rr = db.where('review_review', rev)
-	return([])
-	
-	
-	
+	rr = list(db.where('review_review', author=id))
+	return rr
 	
 	
 def test_insert(person):

@@ -371,15 +371,33 @@ def process_finish(fin_id):
 			  'on_time': now < finish.due}
 	review_id = db.insert('review', **review)
 	# create and send a satisfaction survey to the author	
-	survey = {'paper_id':   finish.paper_id,
-			  'review_id':  review_id,
-			  'author':		author.id}
+	survey = {'paper_id':   	finish.paper_id,
+			  'review_id':  	review_id,
+			  'author':			author.id,
+			  'title':			finish.title,
+			  'author_name': 	author.name}
 	db.insert('feedback', **survey)			
-	# do a sweep once a day to flush old papers and ... 
+
+def process_feedback(id, score):
+	fb = db.where('feedback', id=id)[0]
+	print "FB.ID: ", fb.id
+	print 'FEEDBACK BEFORE'
+	for i in db.select('feedback'):
+		print i
+	returned = db.delete('feedback', where="id=$id", vars=fb)
+	print 'FEEDBACK AFTER'
+	for i in db.select('feedback'):
+		print i
+	print 'AND RETURNED: ', returned
+	fb.score = score
+	db.insert('finished_feedback', **fb)
 
 
 def get_user_feedback(id):
 	rr = list(db.where('feedback', author=id))
+	print 'IN GET_FEEDBACK:  '
+	for r in rr:
+		print r
 	return rr
 	
 	

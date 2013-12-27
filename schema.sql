@@ -1,10 +1,10 @@
 DROP TABLE person;
 DROP TABLE paper cascade;
 DROP TABLE assignment cascade;
+DROP TABLE feedback cascade;
 DROP TABLE finished;
 DROP TABLE alert;
 DROP TABLE review;
-DROP TABLE review_review;
 
 
 CREATE TABLE person (
@@ -103,6 +103,8 @@ CREATE TABLE review (
 CREATE TABLE feedback (
 	id SERIAL PRIMARY KEY,
 	author VARCHAR(30),
+	author_name VARCHAR(50),
+	title TEXT,
 	paper_id INTEGER, -- the ID for the submission
 	review_id INTEGER, -- the ID for the review
 	score INTEGER, -- 1-7 satisfaction Likert.

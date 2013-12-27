@@ -3,6 +3,7 @@ import model
 import json
 
 import datetime
+import threading #for the refresh timer
         
 urls = (
     '/', 					'login',		  # ugly
@@ -22,6 +23,9 @@ urls = (
 # urls = (school+urls[i] for i in range(len(urls)) if i%2==0)
 
 render = web.template.render('templates')
+
+# Do a sweep every so often to flush old papers and activate remoted people
+
 
 class login:        
     def GET(self):
@@ -117,7 +121,8 @@ class feedback:
 	
 	def POST(self):
 		data = json.loads(web.data())
-		db.model.update('feedback', where="id=$id", vars=data)
+		model.process_feedback(data['id'], data['score'])
+		
 		
 
 app = web.application(urls, globals())

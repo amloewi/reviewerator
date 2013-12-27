@@ -199,17 +199,17 @@ $def with (person, requests, alerts, finished, feedback)
 						// Notes, as part of the feedback?
 					}
 			}
-			
+	
 			function submit_feedback(ix){
 				
 				$for i, f in enumerate(feedback):
 					if(ix == $i){
-						radios = jQuery(".checkboxgroup")
+						indices = '1 2 3 4 5 6 7'.split(' ')
 						score = 0
-						for(i in radios){
-							if(radios[i].prop("checked")){
-								score = i+1 // 0-indexed
-								alert(score)
+						for(i in indices){
+							rb = jQuery("#rb"+indices[i])
+							if(rb.prop("checked")){
+								score = parseInt(i)+1 // 0-indexed
 							}
 						}
 						jQuery.post("/feedback",
@@ -220,8 +220,7 @@ $def with (person, requests, alerts, finished, feedback)
 							}
 						)
 					}
-			}
-			
+			}		
 
 			// Prepares the inbox
 			jQuery(document).ready(function () {

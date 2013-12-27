@@ -374,24 +374,16 @@ def process_finish(fin_id):
 	survey = {'paper_id':   finish.paper_id,
 			  'review_id':  review_id,
 			  'author':		author.id}
-	db.insert('review_review', **survey)			
+	db.insert('feedback', **survey)			
 	# do a sweep once a day to flush old papers and ... 
 
 
 def get_user_feedback(id):
-	rr = list(db.where('review_review', author=id))
+	rr = list(db.where('feedback', author=id))
 	return rr
 	
 	
 def test_insert(person):
 	db.insert('person', **person)
 
-def nuclear_option():
-	for table in ["reviewer", "submission", "review", "review_review"]:
-		try:
-			db.query('DROP TABLE '+table+';')
-		except:
-			pass
-	#db.query('DROP TABLE submission;')
-	#db.query('DROP TABLE review;')
-	#db.query('DROP TABLE review_review;')
+

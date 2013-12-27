@@ -100,7 +100,7 @@ CREATE TABLE review (
 	-- milestone, I think.
 );
 
-CREATE TABLE review_review (
+CREATE TABLE feedback (
 	id SERIAL PRIMARY KEY,
 	author VARCHAR(30),
 	paper_id INTEGER, -- the ID for the submission
@@ -108,6 +108,10 @@ CREATE TABLE review_review (
 	score INTEGER, -- 1-7 satisfaction Likert.
 	notes TEXT
 );
+
+CREATE TABLE finished_feedback (
+	-- anything?
+) INHERITS (feedback);
 
 
 -- CREATE TABLE person_paper (

@@ -117,7 +117,7 @@ class feedback:
 	
 	def POST(self):
 		data = json.loads(web.data())
-		db.model.update('review_review', where="id=$id", vars=data)
+		db.model.update('feedback', where="id=$id", vars=data)
 		
 
 app = web.application(urls, globals())

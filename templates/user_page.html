@@ -176,25 +176,50 @@ $def with (person, requests, alerts, finished, feedback)
 			function display_feedback(ix){
 				// What did you think of your recent review?
 				// in the 'feedback' object
-				$for i, r in enumerate(feedback):
+				$for i, f in enumerate(feedback):
 					if(ix == $i){
 						
+						ra = jQuery("request_abstract")
+						ra.text("How helpful was $f.author_name's review of\
+								your paper $f.title? THEY WILL NOT BE TOLD --\
+								 this is only for improving the reviewing\
+								 system.")
+												
+						jQuery("#checkboxes").show()
 						
-						// I want: a message
-						// a way to choose 1-7
-						// labels for that (radio buttons?)
-						// a place for notes
-						// and a submit button -- might be it.
+						jQuery("#buttons").show()
+						jQuery("#left_button").hide()
+						rb = jQuery("#right_button")
+						rb.css("background-color", "blue")
+						rb.attr("value", "Submit Feedback.")
+						//This is all in the 'if' because I need DOLLAR'i' to 
+						// be evaluated. Passing 'ix' doesn't work.
+						rb.attr("onclick", "submit_feedback($i)")
 						
-						
-						
-						
-						
+						// Notes, as part of the feedback?
 					}
 			}
 			
-			function submit_review_review(ix){
-				x = 0
+			function submit_feedback(ix){
+				
+				$for i, f in enumerate(feedback):
+					if(ix == $i){
+						radios = jQuery(".checkboxgroup")
+						score = 0
+						for(i in radios){
+							if(radios[i].prop("checked")){
+								score = i+1 // 0-indexed
+								alert(score)
+							}
+						}
+						jQuery.post("/feedback",
+							JSON.stringify({"id":"$feedback[i].id",
+											"score":score}),
+							function () {
+								window.location = "/dashboard/"+"$person.id"
+							}
+						)
+					}
 			}
 			
 
@@ -204,13 +229,14 @@ $def with (person, requests, alerts, finished, feedback)
 				// CHECK FOR REVIEW REQUESTS TO THIS PERSON!
 				
 				jQuery("#buttons").hide()
+				jQuery("#checkboxes").hide()
 				
 				ra = jQuery("#request_alert")
 				$if requests:
 					ra.append("<h4>You have some new messages.</h4>")
 					ra.css("color", "blue")
 				$else:
-					ra.append("<h4>You do not have any \
+					ra.append("<h4>You do not have any new\
 								reviews to respond to right now.</h4>")
 			})
 			
@@ -271,7 +297,32 @@ $def with (person, requests, alerts, finished, feedback)
 						<div id="request_abstract"
 							 class="col-md-12"
 							 style="height:150px"
-						></div>
+						>
+		
+							<div id="checkboxes"
+								 style="position:relative;
+								 		top:30px; width:300px"
+							>
+								<div class="col-md-4" style="font-weight:bold">
+									Completely Unhelpful
+								</div>
+								<div class="col-md-6" id="radio_div">
+									$for i in range(1,8):
+								    	<div class="checkboxgroup" 		
+												id="radio$i">
+								        	<label for="rb$i">$i</label>
+								        	<input type="radio"
+								 				   name="radio"
+												   id="rb$i" />
+								    	</div>
+								</div>			
+								<div class="col-md-2" style="font-weight:bold">
+									Extremely Helpful
+								</div>
+							</div>
+								
+							
+						</div>
 					</div>
 			
 					<div class="col-md-5">
@@ -326,10 +377,10 @@ $def with (person, requests, alerts, finished, feedback)
 							<div class="well well-sm"
 								 style="margin:0"
 							>
-								$if len(r.title) < 25:
-									$r.title
+								$if len(r.title) < 15:
+									Review: $r.title
 								$else:
-									$r.title[:25] ...
+									Review: $r.title[:15] ...
 								<input class="btn btn-primary"
 									   style="width:60px;
 											  height:30px;
@@ -364,7 +415,10 @@ $def with (person, requests, alerts, finished, feedback)
 							<div class="well well-sm"
 								 style="margin:0"
 							>
-								Finished? 
+								$if len(f.title) < 10:
+									Finished? $f.title
+								$else:
+									Finished? $f.title[:10]
 								<input class="btn btn-primary"
 									   style="width:60px;
 											  height:30px;

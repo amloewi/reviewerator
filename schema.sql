@@ -105,7 +105,7 @@ CREATE TABLE review_review (
 	author VARCHAR(30),
 	paper_id INTEGER, -- the ID for the submission
 	review_id INTEGER, -- the ID for the review
-	satisfaction INTEGER, -- 1-7 satisfaction Likert.
+	score INTEGER, -- 1-7 satisfaction Likert.
 	notes TEXT
 );
 

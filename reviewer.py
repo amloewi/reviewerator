@@ -14,6 +14,7 @@ urls = (
 	'/respond/(.+)',		'respond',
 	'/remove/(.+)',			'remove',
 	'/finished',			'finish_review',
+	'/feedback',			'feedback',
 )
 
 # PROBLEM is: now I gotta change all the ajax calls in the jquery too.
@@ -111,6 +112,12 @@ class finish_review:
 		# Things to do: 
 		fin_id = json.loads(web.data())['id']
 		model.process_finish(fin_id)
+		
+class feedback:
+	
+	def POST(self):
+		data = json.loads(web.data())
+		db.model.update('review_review', where="id=$id", vars=data)
 		
 
 app = web.application(urls, globals())

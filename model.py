@@ -65,7 +65,8 @@ def get_user_requests(id):
 	'''Finds all active review requests assigned a particular reviewer.
 	Called when the dashboard is rendered, to populate the request window.'''
 	
-	asmts = list(db.where('assignment', reviewer=id, accepted=False))
+	asmts = list(db.where('assignment', reviewer=id, accepted=False,
+													 active=True))
 	rqs = []
 	for a in asmts:
 		rqs.append(db.where('paper', id=a.paper)[0])
@@ -211,11 +212,13 @@ def process_submission(paper):
 		lists = [multisort(rdict[k], fxns, rev) for k in kinds]
 		
 		# Have to insert it to GET an id
+		paper['active'] = True
 		paper_id = db.insert('paper', **paper)
 		
 		asmt = {"paper": 		paper_id,
 				"accepted":		False,
-				"completed":	False}
+				"completed":	False,
+				"active":		True}
 
 		asmts = [copy.copy(asmt) for i in range(n)]
 		for i, a in enumerate(asmts):
@@ -234,15 +237,17 @@ def process_submission(paper):
 			a["reviewer"] = candidates[0]
 			# One quoteless non comma seperated string, for easy splitting.
 			# Needs to be this way cause it's stored in sql.
+			selected = lists[i][0] #the rvr OBJECT
 			candidates = " ".join(candidates[1:])
-			a["candidates"] = candidates
-			a["kind"] = kinds[i]
-			a['expertise'] = lists[i][0].expertise
-			
-			#request_review(paper, lists[i][0], kinds[i])
-			
-			email_notice(lists[i][0].email, 'request', author=paper['author'])
-			increment(lists[i][0], 'active_requests')
+			a["candidates"]    = candidates
+			a["kind"] 		   = kinds[i]
+			a['rvr_expertise'] = selected.expertise
+			a['rvr_year'] 	   = selected.year
+			a['rvr_milestone'] = selected.milestone
+			a['active'] 	   = True
+						
+			email_notice(selected.email, 'request', author=paper['author'])
+			increment(selected, 'active_requests')
 			
 			db.insert('assignment', **a)
 		
@@ -288,8 +293,7 @@ def accept_submission(rvr_id, paper_id):
 				'reviewer_name': 	rvr.name,				
 				'author_name': 		author.name,
 				'due':				now+due_td,
-				'title':	   		paper.title,
-				}
+				'title':	   		paper.title,}
 	db.insert('finished', **finished)
 	
 	
@@ -310,22 +314,23 @@ def reject_submission(rvr_id, paper_id):
 		email_notice(rvr.email, 'disabled', author=str(PASS_PENALTY))
 	
 	asmt = db.where('assignment', paper=paper.id, reviewer=rvr.id)[0]	
-	new = copy.copy(asmt)
-	
 	asmt.accepted = False
+	asmt.active = False
+	db.update('assignment', where="id=$id", vars=asmt, **asmt)
+	
 	candidates = asmt.candidates.split()
+	new = next_reviewer(asmt)
 	if candidates:
 		new.reviewer = candidates[0]
 		new.candidates = candidates[1:]
 		db.insert('assignment', **new)
-		#request_review(rvr, paper, asmt.kind)
 		email_notice(rvr.email, 'request', author=paper.author)
 		increment(rvr, 'active_requests')
 	
-		# SYNTAX?
+		# BACK WHEN I WAS DOING THE ACTIVE/NOT TABLE SCHEME
 		# log.delete('exercise', where="id=$id", vars=locals())
-		db.delete('assignment', where="id=$id", vars=asmt, **asmt)
-		db.insert('finished_assignment', asmt)
+		# db.delete('assignment', where="id=$id", vars=asmt, **asmt)
+		# db.insert('finished_assignment', asmt)
 			
 	else:
 		# Nobody was left ... tell the author.
@@ -358,8 +363,11 @@ def process_finish(fin_id):
 	# Log the old assignment as finished.
 	asmt = db.where('assignment', paper=finish.paper_id,
 								  reviewer=finish.reviewer_id)[0]
-	db.delete('assignment', where="id=$id", vars=asmt)
-	db.insert('finished_assignment', **asmt)
+	#db.delete('assignment', where="id=$id", vars=asmt)
+	#db.insert('finished_assignment', **asmt)
+	asmt.completed = True
+	asmt.active = False
+	db.update('assignment', where="id=$id", vars=asmt, **asmt)
 	# Make a 'review' object (which will maybe later have an attachment)
 	now = datetime.datetime.now()
 	review = {'reviewer': reviewer.id,
@@ -371,37 +379,52 @@ def process_finish(fin_id):
 			  'on_time': now < finish.due}
 	review_id = db.insert('review', **review)
 	# create and send a satisfaction survey to the author	
-	survey = {'paper_id':   	finish.paper_id,
-			  'review_id':  	review_id,
-			  'author':			author.id,
-			  'title':			finish.title,
-			  'author_name': 	author.name}
-	db.insert('feedback', **survey)			
+	feedback = {'paper_id':   		finish.paper_id,
+			    'review_id':  		review_id,
+			    'author':			author.id,
+			    'title':			finish.title,
+			    'author_name': 		author.name,
+				'active':			True}
+	db.insert('feedback', **feedback)			
 
 def process_feedback(id, score):
 	fb = db.where('feedback', id=id)[0]
-	print "FB.ID: ", fb.id
-	print 'FEEDBACK BEFORE'
-	for i in db.select('feedback'):
-		print i
-	returned = db.delete('feedback', where="id=$id", vars=fb)
-	print 'FEEDBACK AFTER'
-	for i in db.select('feedback'):
-		print i
-	print 'AND RETURNED: ', returned
+	#db.delete('feedback', where="id=$id", vars=fb)
+	fb.active = False
 	fb.score = score
-	db.insert('finished_feedback', **fb)
+	#db.insert('finished_feedback', **fb)
+	db.update('feedback', where="id=$id", vars=fb, **fb)
 
 
 def get_user_feedback(id):
-	rr = list(db.where('feedback', author=id))
-	print 'IN GET_FEEDBACK:  '
-	for r in rr:
-		print r
-	return rr
+	fb = list(db.where('feedback', author=id, active=True))
+	return fb
 	
 	
 def test_insert(person):
 	db.insert('person', **person)
+
+
+
+###############
+
+# OR just make everything 'active' or not. AT WORST: 10 reviews a day,
+# 100 years -- 10*365*100 = 365,000. 
+
+# I.e. don't have inherited tables. ALSO: check the necessity of ... all kindsa fields, 'accepted' and 'finished' and 'active' and etc. There's a lot.
+
+# add all the desired reviewer attributes to ... 'finished'. 
+
+# remove the names from urls (LAST step -- hard to test that way)
+
+##############
+
+
+
+
+
+
+
+
 
 

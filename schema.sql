@@ -1,7 +1,7 @@
 DROP TABLE person;
-DROP TABLE paper cascade;
-DROP TABLE assignment cascade;
-DROP TABLE feedback cascade;
+DROP TABLE paper; --cascade;
+DROP TABLE assignment; --cascade;
+DROP TABLE feedback; --cascade;
 DROP TABLE finished;
 DROP TABLE alert;
 DROP TABLE review;
@@ -12,17 +12,17 @@ CREATE TABLE person (
 	id VARCHAR(30) PRIMARY KEY, -- login name for the system (no password)
 	name VARCHAR(50),		-- The name that appears in system emails etc.
 	email VARCHAR(50),
-	year INTEGER, -- year in the program
+	year SMALLINT, -- year in the program
 	milestone VARCHAR(20), -- None, 1st Paper, 2nd Paper, or Proposal
 	expertise TEXT, -- statistics, economics, IS, etc. Comma delimited.
 	
-	submitted INTEGER, -- num papers submitted
-	reviewed INTEGER, -- num papers reviewed
-	passes INTEGER, -- current number of 'pass' actions. Too many you're out.
-	dropped INTEGER, -- num reviews accepted and not done. (allowed?)
+	submitted SMALLINT, -- num papers submitted
+	reviewed SMALLINT, -- num papers reviewed
+	passes SMALLINT, -- current number of 'pass' actions. Too many you're out.
+	dropped SMALLINT, -- num reviews accepted and not done. (allowed?)
 	
-	active_requests INTEGER, -- number of requests you're currently fielding
-	active_submissions INTEGER, -- number of submissions you have out
+	active_requests SMALLINT, -- number of requests you're currently fielding
+	active_submissions SMALLINT, -- number of submissions you have out
 	
 	started TIMESTAMP, -- profile creation date
 	last_review TIMESTAMP,
@@ -39,36 +39,42 @@ CREATE TABLE paper (
 	requested_expertise TEXT,
 	paper BYTEA, -- later
 	notes TEXT,
-	timeline INTEGER, -- number of days requested for turnaround
-	date TIMESTAMP -- date of submission
+	timeline SMALLINT, -- number of days requested for turnaround
+	date TIMESTAMP, -- date of submission
+	
+	active BOOLEAN
 );
 
 CREATE TABLE assignment (
 	id SERIAL PRIMARY KEY,
-	paper INT, -- The id of the related submission
+	paper INTEGER, -- The id of the related submission
 	reviewer VARCHAR(30),			-- finally accepted
-	expertise TEXT, -- reviewer's expertise at time of assignment
+	rvr_expertise TEXT, -- reviewer's expertise at time of assignment
+	rvr_year SMALLINT,
+	rvr_milestone VARCHAR(20),
 	candidates TEXT, -- list of next possibilities
 	kind VARCHAR(10), -- jr/sr .. other
 	accepted BOOLEAN, --by a reviewer
-	completed BOOLEAN --by a reviewer
+	completed BOOLEAN, --by a reviewer
+	
+	active BOOLEAN
 );
 
 
-CREATE TABLE finished_paper (
-	-- anything?
-) INHERITS (paper);
-
-CREATE TABLE finished_assignment (
-	-- anything?
-) INHERITS (assignment);
+-- CREATE TABLE finished_paper (
+-- 	-- anything?
+-- ) INHERITS (paper);
+-- 
+-- CREATE TABLE finished_assignment (
+-- 	-- anything?
+-- ) INHERITS (assignment);
 
 
 -- Sits around in the box of an active reviewer. 
 -- They signal the review is finished by clicking it.
 CREATE TABLE finished (
 	id SERIAL PRIMARY KEY, -- need to find it to remove it
-	paper_id INT,
+	paper_id INTEGER,
 	reviewer_id VARCHAR(30),
 	author_id VARCHAR(30),
 	reviewer_name VARCHAR(50),
@@ -90,7 +96,7 @@ CREATE TABLE review (
 	author VARCHAR(30),   -- paper's author's id
 	title TEXT,		   -- of the paper
 	reviewer_expertise TEXT, -- this will change over time, so keep a copy here
-	review BYTEA, -- later
+	review BYTEA, -- later; the  contents of uploaded review itself
 	returned TIMESTAMP,-- 
 	on_time BOOLEAN
 	-- CONTENT, NOTES, UPLOAD IT, ETC.
@@ -107,13 +113,15 @@ CREATE TABLE feedback (
 	title TEXT,
 	paper_id INTEGER, -- the ID for the submission
 	review_id INTEGER, -- the ID for the review
-	score INTEGER, -- 1-7 satisfaction Likert.
-	notes TEXT
+	score SMALLINT, -- 1-7 satisfaction Likert.
+	notes TEXT, -- not yet implemented
+	
+	active BOOLEAN
 );
 
-CREATE TABLE finished_feedback (
-	-- anything?
-) INHERITS (feedback);
+-- CREATE TABLE finished_feedback (
+-- 	-- anything?
+-- ) INHERITS (feedback);
 
 
 -- CREATE TABLE person_paper (

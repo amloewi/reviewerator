@@ -43,6 +43,7 @@ class users:
 class show_dashboard:
 	
 	def GET(self, id): 
+		# id = json.loads(web.data())['id']
 		person   = model.get_user_data(id)
 		requests = model.get_user_requests(id)
 		alerts   = model.get_user_alerts(id)

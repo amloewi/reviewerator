@@ -101,31 +101,30 @@ def email_notice(email, message, author=None, reviewer=None):
 
 	# A notice to the reviewer that a review has been requested
 	if message == "request":
-		msg = """Please log in to the PhD Reviewer system to respond to the request from """+author+""".\n\nMany thanks from the entire PhD community,\nSenator Heinz
-				"""
+		msg = """Please log in to the PhD Reviewer system to respond to the request from """+author+""".\n\nMany thanks from the entire PhD community,"""
+		
 		subject = "You have been requested to review a colleague's work"
 	
 	# A notice to the author that a request has been accepted
 	if message == "accepted":
-		msg = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. \n\nMany thanks from the entire PhD community,\nSenator Heinz
-				"""
+		msg = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. \n\nMany thanks from the entire PhD community,"""
+		
 		subject = "Your review request has been accepted!"
 
 	# A notice to the author that a review has been completed
 	if message == "returned":
-		msg = reviewer+""" has completed your review! Please log in to the PhD 			 Review System to accept it. \n\nMany thanks from the entire PhD community,\nSenator Heinz
-				"""
+		msg = reviewer+""" has completed your review! Please log in to the PhD 			 Review System to accept it."""
+		
 		subject = "Your review has been completed!"
 		
 	# A reminder that the requested return date is approaching
 	if message == "deadline":
-		msg = """Please log in to the PhD Reviewer system to respond to the request. \nMany thanks from the entire PhD community,\nSenator Heinz
-				"""
+		msg = """Please log in to the PhD Reviewer system to respond to the request. \nMany thanks from the entire PhD community,"""
 		subject = "There is one day remaining on an active review deadline"
 	
 	# If a 'candidates' list runs dry on an assignment
 	if message == "apology":
-		msg = """We're very sorry, no one was available to fill one of your reviewer spots. Please try again soon. \nSenator Heinz"""
+		msg = """We're very sorry, no one was available to fill one of your reviewer spots. Please try again soon."""
 		
 		subject = "One reviewer spot could not be filled"
 		
@@ -139,6 +138,7 @@ def email_notice(email, message, author=None, reviewer=None):
 	# The tag #
 	###########	
 	subject = "[PhDRvr] " + subject
+	msg = msg + "\nSenator Heinz" + "\n" + URL
 	
 	
 		# The code below is pulled straight from
@@ -257,11 +257,6 @@ def assign_reviewer(paper, kind, rejected=''):
 		increment(selected, 'active_requests')
 		
 		db.insert('assignment', **asmt)
-		
-		# Notch one up for the submitter
-		author = db.where('person', id=paper['author'])[0]
-		increment(author, 'submitted')
-		increment(author, 'active_submissions')
 				
 	else:
 		# Nobody was available -- apologize
@@ -283,19 +278,24 @@ def process_submission(paper):
 	assign_reviewer(paper, 'jr')
 	assign_reviewer(paper, 'sr')
 	
+	# Notch one up for the submitter
+	author = db.where('person', id=paper['author'])[0]
+	increment(author, 'submitted')
+	increment(author, 'active_submissions')
+	
 
-def new_reviewer(asmt):#, candidate):
-	#new = next_reviewer(asmt, candidates[0])
-	rvr = assign_reviewer() #db.where('person', id=candidate)[0]
-
- 	# needs to update all the reviewer details; year, expertise, milestone
-	new = dict(copy.copy(asmt))
-	del new['id'] # necessary for unique ids -- a new one will be assigned (?)
-	new['reviewer'] = rvr.id
-	new['rvr_expertise'] = rvr.expertise
-	new['rvr_year'] = rvr.year
-	new['rvr_milestone'] = rvr.milestone
-	return new
+# def new_reviewer(asmt):#, candidate):
+# 	#new = next_reviewer(asmt, candidates[0])
+# 	rvr = assign_reviewer() #db.where('person', id=candidate)[0]
+# 
+#  	# needs to update all the reviewer details; year, expertise, milestone
+# 	new = dict(copy.copy(asmt))
+# 	del new['id'] # necessary for unique ids -- a new one will be assigned (?)
+# 	new['reviewer'] = rvr.id
+# 	new['rvr_expertise'] = rvr.expertise
+# 	new['rvr_year'] = rvr.year
+# 	new['rvr_milestone'] = rvr.milestone
+# 	return new
 
 def accept_submission(rvr_id, paper_id):
 	# Get the submission itself
@@ -350,10 +350,6 @@ def reject_submission(rvr_id, paper_id):
 		email_notice(rvr.email, 'disabled', author=str(PASS_PENALTY))
 	
 	asmt = db.where('assignment', paper=paper.id, reviewer=rvr.id)[0]
-	
-	# Do this BEFORE marking it as not accepted or active
-	#new = new_reviewer(asmt)#, candidates[0])	
-	
 	asmt.accepted = False
 	asmt.active = False
 	db.update('assignment', where="id=$id", vars=asmt, **asmt)
@@ -429,6 +425,8 @@ def process_feedback(id, score):
 	fb.score = score
 	#db.insert('finished_feedback', **fb)
 	db.update('feedback', where="id=$id", vars=fb, **fb)
+
+
 
 
 	

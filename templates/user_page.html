@@ -178,12 +178,6 @@ $def with (person, requests, alerts, finished, feedback)
 				// in the 'feedback' object
 				$for i, f in enumerate(feedback):
 					if(ix == $i){
-						
-						ra = jQuery("request_abstract")
-						ra.text("How helpful was $f.author_name's review of\
-								your paper $f.title? THEY WILL NOT BE TOLD --\
-								 this is only for improving the reviewing\
-								 system.")
 												
 						jQuery("#checkboxes").show()
 						
@@ -195,6 +189,12 @@ $def with (person, requests, alerts, finished, feedback)
 						//This is all in the 'if' because I need DOLLAR'i' to 
 						// be evaluated. Passing 'ix' doesn't work.
 						rb.attr("onclick", "submit_feedback($i)")
+						
+						ra = jQuery("#checkbox_message")
+						ra.text("How helpful was $f.author_name's review of\
+								your paper $f.title? THEY WILL NOT BE TOLD --\
+								 this is only for improving the reviewing\
+								 system.")
 						
 						// Notes, as part of the feedback?
 					}
@@ -297,10 +297,10 @@ $def with (person, requests, alerts, finished, feedback)
 							 class="col-md-12"
 							 style="height:150px"
 						>
-		
+							<div id="checkbox_message"></div>
 							<div id="checkboxes"
 								 style="position:relative;
-								 		top:30px; width:300px"
+								 		top:40px; width:300px"
 							>
 								<div class="col-md-4" style="font-weight:bold">
 									Completely Unhelpful

@@ -60,16 +60,6 @@ CREATE TABLE assignment (
 	active BOOLEAN
 );
 
-
--- CREATE TABLE finished_paper (
--- 	-- anything?
--- ) INHERITS (paper);
--- 
--- CREATE TABLE finished_assignment (
--- 	-- anything?
--- ) INHERITS (assignment);
-
-
 -- Sits around in the box of an active reviewer. 
 -- They signal the review is finished by clicking it.
 CREATE TABLE finished (
@@ -100,10 +90,6 @@ CREATE TABLE review (
 	returned TIMESTAMP,-- 
 	on_time BOOLEAN
 	-- CONTENT, NOTES, UPLOAD IT, ETC.
-	
-	-- FEATURES OF THE REVIEWERS WHEN they review
-	-- As well. Their -- expertise, timing, and ...
-	-- milestone, I think.
 );
 
 CREATE TABLE feedback (
@@ -118,24 +104,4 @@ CREATE TABLE feedback (
 	
 	active BOOLEAN
 );
-
--- CREATE TABLE finished_feedback (
--- 	-- anything?
--- ) INHERITS (feedback);
-
-
--- CREATE TABLE person_paper (
--- 	reviewer TEXT,
--- 	submission INTEGER,
--- );
--- 
--- 
--- -- necessary to 
--- CREATE TABLE person_review (
--- 	reviewer TEXT,
--- 	submission INTEGER,
--- );
-
--- reviewer_review?
-
 

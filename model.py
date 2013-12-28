@@ -41,16 +41,16 @@ def users():
 
 def create_user(id):
 	now = datetime.datetime.now()
-	db.insert('peron', id=id,
+	db.insert('person', id=id,
 					   reviewed=0,
 					   submitted=0,
 					   passes=0,
 					   dropped=0,
-					   useful=0,
 					   active_requests=0,
 					   active_submissions=0,
 					   started=now,
-					   last_review=now)
+					   last_review=now,
+					   enabled=True)
 	
 def get_user_data(id):
 	return db.where('person', id=id)[0]
@@ -91,7 +91,8 @@ def get_user_feedback(id):
 
 
 
-def email_notice(email, message, author=None, reviewer=None):
+def email_notice(to_email, message, author=None, reviewer=None, 					
+												 contact_email=None):
 	""" The function that emails the relevant parties when an action is taken.
 	
 	
@@ -101,25 +102,26 @@ def email_notice(email, message, author=None, reviewer=None):
 
 	# A notice to the reviewer that a review has been requested
 	if message == "request":
-		msg = """Please log in to the PhD Reviewer system to respond to the request from """+author+""".\n\nMany thanks from the entire PhD community,"""
+		msg = """Please log in to the PhD Reviewer system to respond to the request from """+author+""". If you have any questions, their email is  """+contact_email+""".\n\nMany thanks from the entire PhD community,"""
 		
 		subject = "You have been requested to review a colleague's work"
 	
 	# A notice to the author that a request has been accepted
 	if message == "accepted":
-		msg = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. \n\nMany thanks from the entire PhD community,"""
+		msg = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. Their email is """+contact_email+""" \n\nMany thanks from the entire PhD community,"""
 		
 		subject = "Your review request has been accepted!"
 
 	# A notice to the author that a review has been completed
 	if message == "returned":
-		msg = reviewer+""" has completed your review! Please log in to the PhD 			 Review System to accept it."""
+		msg = reviewer+""" has completed your review! Please log in to the PhD Review System to accept it."""
 		
 		subject = "Your review has been completed!"
 		
 	# A reminder that the requested return date is approaching
 	if message == "deadline":
-		msg = """Please log in to the PhD Reviewer system to respond to the request. \nMany thanks from the entire PhD community,"""
+		msg = """You have 24 hours remaining before a review is due. \nMany thanks from the entire PhD community,"""
+		
 		subject = "There is one day remaining on an active review deadline"
 	
 	# If a 'candidates' list runs dry on an assignment
@@ -147,7 +149,7 @@ def email_notice(email, message, author=None, reviewer=None):
 	msg = MIMEText(msg, _charset='utf-8')
 	msg['Subject'] = Header(subject, 'utf-8')
 	msg['From'] = login
-	msg['To'] = email
+	msg['To'] = to_email
 
 	# send it via gmail        WHY 465 ?
 	s = SMTP_SSL('smtp.gmail.com', 465, timeout=10)
@@ -158,19 +160,7 @@ def email_notice(email, message, author=None, reviewer=None):
 	finally:
 	    s.quit()
 
-
-# def request_review(paper, reviewer, kind):
-# 	"""Send a request to a person. Takes the person object and paper dict.
-# 	
-# 	Either they already exist, or you can call them right before. It's cleaner than having a toggle for 'just a name, or the whole thing?'
-# 	"""
-# 	
-# 	email_notice(reviewer.email, 'request', author=paper['author'])
-# 	increment(reviewer, 'active_requests')
-# 	# Is that really ALL? This should probably just be written directly
-# 	# into the places it's used, cause there are only two.
-
-						
+				
 def increment(person, field, value=1):
 	"""Takes the person OBJECT. Increments their 'field' attribute by one. """
 	person[field] += value
@@ -252,8 +242,10 @@ def assign_reviewer(paper, kind, rejected=''):
 		asmt['rvr_year'] 	   = selected.year
 		asmt['rvr_milestone']  = selected.milestone
 		asmt['active'] 	   	   = True
-					
-		email_notice(selected.email, 'request', author=paper['author'])
+		
+		author = db.where('person', id=paper['author'])[0]
+		email_notice(selected.email, 'request', author=author.name,
+												contact_email=author.email)
 		increment(selected, 'active_requests')
 		
 		db.insert('assignment', **asmt)
@@ -282,20 +274,7 @@ def process_submission(paper):
 	author = db.where('person', id=paper['author'])[0]
 	increment(author, 'submitted')
 	increment(author, 'active_submissions')
-	
 
-# def new_reviewer(asmt):#, candidate):
-# 	#new = next_reviewer(asmt, candidates[0])
-# 	rvr = assign_reviewer() #db.where('person', id=candidate)[0]
-# 
-#  	# needs to update all the reviewer details; year, expertise, milestone
-# 	new = dict(copy.copy(asmt))
-# 	del new['id'] # necessary for unique ids -- a new one will be assigned (?)
-# 	new['reviewer'] = rvr.id
-# 	new['rvr_expertise'] = rvr.expertise
-# 	new['rvr_year'] = rvr.year
-# 	new['rvr_milestone'] = rvr.milestone
-# 	return new
 
 def accept_submission(rvr_id, paper_id):
 	# Get the submission itself
@@ -311,7 +290,8 @@ def accept_submission(rvr_id, paper_id):
 			break	 		
 	
 	#	email the author
-	email_notice(author.email, 'accepted', reviewer=rvr.name)
+	email_notice(author.email, 'accepted', reviewer=rvr.name,
+										   contact_email=rvr.email)
 	
 	# 	set a reminder with the deadline
 	alert_td = datetime.timedelta(days=paper.timeline-1)
@@ -357,29 +337,6 @@ def reject_submission(rvr_id, paper_id):
 	rejected = rvr_id + " " + asmt.rejected
 	assign_reviewer(paper, asmt.kind, rejected)
 	
-	#candidates = asmt.candidates.split()
-	#if candidates:
-	
-	# This function resets the assignment reviewer values with those
-	# of the new reviewer.
-		
-	#new['rejected'] = ' '.join(candidates[1:])
-	
-	#new_rvr = db.where("person", id=new['reviewer'])[0]
-	#db.insert('assignment', **new)
-	#email_notice(new_rvr.email, 'request', author=paper.author)
-	#increment(new_rvr, 'active_requests')
-
-	# BACK WHEN I WAS DOING THE ACTIVE/NOT TABLE SCHEME
-	# log.delete('exercise', where="id=$id", vars=locals())
-	# db.delete('assignment', where="id=$id", vars=asmt, **asmt)
-	# db.insert('finished_assignment', asmt)
-			
-	# else:
-	# 	# Nobody was left ... tell the author.
-	# 	author = db.where('person', id=paper.author)[0]
-	# 	email_notice(author.email, "apology")
-		
 	
 def process_finish(fin_id):
 	finish = db.where('finished', id=fin_id)[0]
@@ -437,25 +394,10 @@ def test_insert(person):
 
 ###############
 
-# OR just make everything 'active' or not. AT WORST: 10 reviews a day,
-# 100 years -- 10*365*100 = 365,000. 
-
-# I.e. don't have inherited tables. ALSO: check the necessity of ... all kindsa fields, 'accepted' and 'finished' and 'active' and etc. There's a lot.
-
-# add all the desired reviewer attributes to ... 'finished'. 
-
 # remove the names from urls (LAST step -- hard to test that way)
 
 # html emails ... include the url in them ... 
 
 ##############
-
-
-
-
-
-
-
-
 
 

@@ -48,11 +48,11 @@ CREATE TABLE paper (
 CREATE TABLE assignment (
 	id SERIAL PRIMARY KEY,
 	paper INTEGER, -- The id of the related submission
-	reviewer VARCHAR(30),			-- finally accepted
+	reviewer VARCHAR(30),			-- currently assigned
 	rvr_expertise TEXT, -- reviewer's expertise at time of assignment
 	rvr_year SMALLINT,
 	rvr_milestone VARCHAR(20),
-	candidates TEXT, -- list of next possibilities
+	rejected TEXT, -- list of those who have turned it down.
 	kind VARCHAR(10), -- jr/sr .. other
 	accepted BOOLEAN, --by a reviewer
 	completed BOOLEAN, --by a reviewer

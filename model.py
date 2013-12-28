@@ -192,14 +192,17 @@ rev  = [False,         True,        False]
 fxns = [request_count, submit_diff, recent_review]
 
 
-def assign_reviewer(paper, kind):	
+def assign_reviewer(paper, kind, rejected=''):	
 
 	# Choose reviewers, based on the ratio AND CURRENT LOAD
 	rvrs = list(db.where('person', enabled=True))
+	rejected = rejected.split()
+	# Can't review your own paper, and don't want to reassign
+	# to people who have already rejected it
+	rvrs = [r for r in rvrs if
+	 			r.id != paper['author'] and r.id not in rejected]
+	
 	if rvrs:
-		# Can't review your own paper
-		rvrs = [r for r in list(rvrs) if r.id != paper['author']]
-		
 		########################### Should only need to change this part.
 		# Split by seniority
 		kinds = ['jr', 'sr']
@@ -224,46 +227,46 @@ def assign_reviewer(paper, kind):
 		asmt = {"paper": 		paper['id'],
 				"accepted":		False,
 				"completed":	False,
-				"active":		True}
+				"active":		True,
+				"rejected":		''}
+				# add 'kind'?
 
-		asmts = [copy.copy(asmt) for i in range(n)]
-		for i, a in enumerate(asmts):
-			# Just the names, from the corresponding list
-			candidates = [p.id for p in lists[i]]
-			# Cycle through the other candidates, and stick them on the end
-			# as backups, even though they're a different 'kind.' 
-			# This could theoretically result in someone having to reject
-			# something multiple times, but to avoid that seems 
-			# complicated and unnecessary. Better to make sure a reviewer
-			# is gotten from SOMEwhere.
-			for j in range(i+1,n)+range(i):
-				candidates += [p.id for p in lists[j]] 
-			# The first person from the corresponding list
-			a["reviewer"] = candidates[0]
-			# One quoteless non comma seperated string, for easy splitting.
-			# Needs to be this way cause it's stored in sql.
-			selected = lists[i][0] #the rvr OBJECT
-			candidates = " ".join(candidates[1:])
-			a["candidates"]    = candidates
-			a["kind"] 		   = kinds[i]
-			a['rvr_expertise'] = selected.expertise
-			a['rvr_year'] 	   = selected.year
-			a['rvr_milestone'] = selected.milestone
-			a['active'] 	   = True
-						
-			email_notice(selected.email, 'request', author=paper['author'])
-			increment(selected, 'active_requests')
-			
-			db.insert('assignment', **a)
+		#asmts = [copy.copy(asmt) for i in range(n)]
+		#for i, a in enumerate(asmts):
+		
+		# A list of lists, sorted by 'kind'
+		candidates = [ [p.id for p in lists[i]] for i in range(n)]
+		# Go through EVERYBODY. In order, but maybe only 'later' 
+		# ones are THERE
+		sorted_candidates = []
+		ix = kinds.index(kind)
+		for j in range(ix,n)+range(ix):
+			sorted_candidates += candidates[j] #[p.id for p in lists[j]] 
+		# The first person from the corresponding list
+		asmt["reviewer"] = sorted_candidates[0]
+		selected = db.where('person', id=asmt['reviewer'])[0] #the rvr OBJECT
+		#candidates = " ".join(candidates[1:])
+		
+		asmt["kind"] 		   = kind
+		asmt['rvr_expertise']  = selected.expertise
+		asmt['rvr_year'] 	   = selected.year
+		asmt['rvr_milestone']  = selected.milestone
+		asmt['active'] 	   	   = True
+					
+		email_notice(selected.email, 'request', author=paper['author'])
+		increment(selected, 'active_requests')
+		
+		db.insert('assignment', **asmt)
 		
 		# Notch one up for the submitter
 		author = db.where('person', id=paper['author'])[0]
 		increment(author, 'submitted')
 		increment(author, 'active_submissions')
-		
+				
 	else:
-		# nobody's signed up -- hope that's an error
-		print "never got here"
+		# Nobody was available -- apologize
+		author = db.where('person', id=paper.author)[0]
+		email_notice(author.email, "apology")
 
 def process_submission(paper):
 	'''Called when a review request is submitted. Increments the 
@@ -277,16 +280,17 @@ def process_submission(paper):
 	paper['active'] = True
 	paper_id = db.insert('paper', **paper)
 	paper['id'] = paper_id
-	assign_reviewer(paper)
+	assign_reviewer(paper, 'jr')
+	assign_reviewer(paper, 'sr')
 	
 
-def new_reviewer(asmt, candidate):
+def new_reviewer(asmt):#, candidate):
 	#new = next_reviewer(asmt, candidates[0])
-	rvr = db.where('person', id=candidate)[0]
+	rvr = assign_reviewer() #db.where('person', id=candidate)[0]
+
  	# needs to update all the reviewer details; year, expertise, milestone
 	new = dict(copy.copy(asmt))
 	del new['id'] # necessary for unique ids -- a new one will be assigned (?)
-	new['active'] = True
 	new['reviewer'] = rvr.id
 	new['rvr_expertise'] = rvr.expertise
 	new['rvr_year'] = rvr.year
@@ -345,30 +349,40 @@ def reject_submission(rvr_id, paper_id):
 		db.update('person', where="id=$id", vars=rvr, **rvr)
 		email_notice(rvr.email, 'disabled', author=str(PASS_PENALTY))
 	
-	asmt = db.where('assignment', paper=paper.id, reviewer=rvr.id)[0]	
+	asmt = db.where('assignment', paper=paper.id, reviewer=rvr.id)[0]
+	
+	# Do this BEFORE marking it as not accepted or active
+	#new = new_reviewer(asmt)#, candidates[0])	
+	
 	asmt.accepted = False
 	asmt.active = False
 	db.update('assignment', where="id=$id", vars=asmt, **asmt)
 	
-	candidates = asmt.candidates.split()
-	if candidates:
-		# This function resets the assignment reviewer values with those
-		# of the new reviewer.
-		new = new_reviewer(asmt, candidates[0])		
-		new['candidates'] = ' '.join(candidates[1:])
-		db.insert('assignment', **new)
-		email_notice(rvr.email, 'request', author=paper.author)
-		increment(rvr, 'active_requests')
+	rejected = rvr_id + " " + asmt.rejected
+	assign_reviewer(paper, asmt.kind, rejected)
 	
-		# BACK WHEN I WAS DOING THE ACTIVE/NOT TABLE SCHEME
-		# log.delete('exercise', where="id=$id", vars=locals())
-		# db.delete('assignment', where="id=$id", vars=asmt, **asmt)
-		# db.insert('finished_assignment', asmt)
+	#candidates = asmt.candidates.split()
+	#if candidates:
+	
+	# This function resets the assignment reviewer values with those
+	# of the new reviewer.
+		
+	#new['rejected'] = ' '.join(candidates[1:])
+	
+	#new_rvr = db.where("person", id=new['reviewer'])[0]
+	#db.insert('assignment', **new)
+	#email_notice(new_rvr.email, 'request', author=paper.author)
+	#increment(new_rvr, 'active_requests')
+
+	# BACK WHEN I WAS DOING THE ACTIVE/NOT TABLE SCHEME
+	# log.delete('exercise', where="id=$id", vars=locals())
+	# db.delete('assignment', where="id=$id", vars=asmt, **asmt)
+	# db.insert('finished_assignment', asmt)
 			
-	else:
-		# Nobody was left ... tell the author.
-		author = db.where('person', id=paper.author)[0]
-		email_notice(author.email, "apology")
+	# else:
+	# 	# Nobody was left ... tell the author.
+	# 	author = db.where('person', id=paper.author)[0]
+	# 	email_notice(author.email, "apology")
 		
 	
 def process_finish(fin_id):

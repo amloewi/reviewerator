@@ -28,6 +28,8 @@ PASS_LIMIT = 5
 # The number of days you're out, if you go over the pass limit
 PASS_PENALTY = 14 #days
 
+URL = "young-wave-9997.herokuapp.com"
+
 
 db = web.database(dbn='postgres',
 					user='alexloewi',
@@ -71,6 +73,22 @@ def get_user_requests(id):
 	for a in asmts:
 		rqs.append(db.where('paper', id=a.paper)[0])
 	return(rqs)
+
+def get_user_alerts(id):
+	alerts = list(db.where('alert', person=id))
+	now = datetime.datetime.now()
+	active = [a for a in alerts if a.reveal_if_after < now]
+	return active
+
+
+def get_user_finished(id):
+	finished = list(db.where('finished', reviewer_id=id))
+	return finished 
+
+def get_user_feedback(id):
+	fb = list(db.where('feedback', author=id, active=True))
+	return fb
+
 
 
 def email_notice(email, message, author=None, reviewer=None):
@@ -174,17 +192,10 @@ rev  = [False,         True,        False]
 fxns = [request_count, submit_diff, recent_review]
 
 
-def process_submission(paper):
-	'''Called when a review request is submitted. Increments the 
-	number of reviews requested in the reviewer\'s profile, then 
-	selects two (currently) reviewers for them, and files the submission.
-	It will be called up when they log in. 
-	And this emails the chosen reviewers, to let them know.
-	'''
-	
+def assign_reviewer(paper, kind):	
+
 	# Choose reviewers, based on the ratio AND CURRENT LOAD
 	rvrs = list(db.where('person', enabled=True))
-	print [r.id for r in rvrs]
 	if rvrs:
 		# Can't review your own paper
 		rvrs = [r for r in list(rvrs) if r.id != paper['author']]
@@ -206,16 +217,11 @@ def process_submission(paper):
 				if r.milestone in features[i]:
 					# Sort them accordingly.
 					rdict[kinds[i]].append(r)
-		print rdict
 		# Do the multi-parameter prioritized sort
 		# fxns is (are) defined immediately above
 		lists = [multisort(rdict[k], fxns, rev) for k in kinds]
 		
-		# Have to insert it to GET an id
-		paper['active'] = True
-		paper_id = db.insert('paper', **paper)
-		
-		asmt = {"paper": 		paper_id,
+		asmt = {"paper": 		paper['id'],
 				"accepted":		False,
 				"completed":	False,
 				"active":		True}
@@ -224,7 +230,6 @@ def process_submission(paper):
 		for i, a in enumerate(asmts):
 			# Just the names, from the corresponding list
 			candidates = [p.id for p in lists[i]]
-			print candidates
 			# Cycle through the other candidates, and stick them on the end
 			# as backups, even though they're a different 'kind.' 
 			# This could theoretically result in someone having to reject
@@ -259,7 +264,34 @@ def process_submission(paper):
 	else:
 		# nobody's signed up -- hope that's an error
 		print "never got here"
+
+def process_submission(paper):
+	'''Called when a review request is submitted. Increments the 
+	number of reviews requested in the reviewer\'s profile, then 
+	selects two (currently) reviewers for them, and files the submission.
+	It will be called up when they log in. 
+	And this emails the chosen reviewers, to let them know.
+	'''
+
+	# Have to insert it to GET an id
+	paper['active'] = True
+	paper_id = db.insert('paper', **paper)
+	paper['id'] = paper_id
+	assign_reviewer(paper)
 	
+
+def new_reviewer(asmt, candidate):
+	#new = next_reviewer(asmt, candidates[0])
+	rvr = db.where('person', id=candidate)[0]
+ 	# needs to update all the reviewer details; year, expertise, milestone
+	new = dict(copy.copy(asmt))
+	del new['id'] # necessary for unique ids -- a new one will be assigned (?)
+	new['active'] = True
+	new['reviewer'] = rvr.id
+	new['rvr_expertise'] = rvr.expertise
+	new['rvr_year'] = rvr.year
+	new['rvr_milestone'] = rvr.milestone
+	return new
 
 def accept_submission(rvr_id, paper_id):
 	# Get the submission itself
@@ -319,10 +351,11 @@ def reject_submission(rvr_id, paper_id):
 	db.update('assignment', where="id=$id", vars=asmt, **asmt)
 	
 	candidates = asmt.candidates.split()
-	new = next_reviewer(asmt)
 	if candidates:
-		new.reviewer = candidates[0]
-		new.candidates = candidates[1:]
+		# This function resets the assignment reviewer values with those
+		# of the new reviewer.
+		new = new_reviewer(asmt, candidates[0])		
+		new['candidates'] = ' '.join(candidates[1:])
 		db.insert('assignment', **new)
 		email_notice(rvr.email, 'request', author=paper.author)
 		increment(rvr, 'active_requests')
@@ -336,18 +369,6 @@ def reject_submission(rvr_id, paper_id):
 		# Nobody was left ... tell the author.
 		author = db.where('person', id=paper.author)[0]
 		email_notice(author.email, "apology")
-	
-	
-def get_user_alerts(id):
-	alerts = list(db.where('alert', person=id))
-	now = datetime.datetime.now()
-	active = [a for a in alerts if a.reveal_if_after < now]
-	return active
-
-
-def get_user_finished(id):
-	finished = list(db.where('finished', reviewer_id=id))
-	return finished 
 		
 	
 def process_finish(fin_id):
@@ -396,10 +417,6 @@ def process_feedback(id, score):
 	db.update('feedback', where="id=$id", vars=fb, **fb)
 
 
-def get_user_feedback(id):
-	fb = list(db.where('feedback', author=id, active=True))
-	return fb
-	
 	
 def test_insert(person):
 	db.insert('person', **person)
@@ -416,6 +433,8 @@ def test_insert(person):
 # add all the desired reviewer attributes to ... 'finished'. 
 
 # remove the names from urls (LAST step -- hard to test that way)
+
+# html emails ... include the url in them ... 
 
 ##############
 

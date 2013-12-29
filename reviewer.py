@@ -190,8 +190,8 @@ if __name__ == "__main__":
 			"last_review":datetime.datetime.now()
 	}
 	#model.nuclear_option()
-	model.test_insert(alex)
-	model.test_insert(shelly)
-	model.test_insert(paul)
-	model.test_insert(clara)
+	#model.test_insert(alex)
+	#model.test_insert(shelly)
+	#model.test_insert(paul)
+	#model.test_insert(clara)
 	app.run()

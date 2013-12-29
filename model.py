@@ -9,6 +9,11 @@ from email.header    import Header
 from email.mime.text import MIMEText
 from smtplib         import SMTP_SSL
 
+##############
+# THE COMMAND I NEED (IT APPEARS) TO STICK THE DATABASE UP
+#heroku pg:transfer -f postgres://localhost/alexloewi -t postgres://gmjfeaokrqybxu:rWV1ucM1sW-BMFTz4LNTMQsTVW@ec2-23-23-81-171.compute-1.amazonaws.com:5432/dk43q2hjo7pai
+##############
+
 #heroku config | grep HEROKU_POSTGRESQLHEROKU_POSTGRESQL_ORANGE_URL => postgres://gmjfeaokrqybxu:rWV1ucM1sW-BMFTz4LNTMQsTVW@ec2-23-23-81-171.compute-1.amazonaws.com:5432/dk43q2hjo7pai
 
 # heroku pg:credentials DATABASE
@@ -16,12 +21,17 @@ from smtplib         import SMTP_SSL
 #    "dbname=dk43q2hjo7pai host=ec2-23-23-81-171.compute-1.amazonaws.com port=5432 user=gmjfeaokrqybxu password=rWV1ucM1sW-BMFTz4LNTMQsTVW sslmode=require"
 
 # HEROKU PRODUCTION
-# db = web.database(dbname='dk43q2hjo7pai',
-#  				   host='ec2-23-23-81-171.compute-1.amazonaws.com',
-# 				   port=5432,
-# 				   user='gmjfeaokrqybxu',
-# 				   password='rWV1ucM1sW-BMFTz4LNTMQsTVW',
-#				   sslmode='require')
+db = web.database(dbname='dk43q2hjo7pai',
+ 				   host='ec2-23-23-81-171.compute-1.amazonaws.com',
+				   port=5432,
+				   user='gmjfeaokrqybxu',
+				   password='rWV1ucM1sW-BMFTz4LNTMQsTVW',
+				   sslmode='require')
+
+# db = web.database(dbn='postgres',
+# 					user='alexloewi',
+# 					pw='dian4nao3',
+# 					db='alexloewi')
 
 # The number of passes before you're disabled for PASS_PENALTY
 PASS_LIMIT = 5
@@ -30,11 +40,6 @@ PASS_PENALTY = 14 #days
 
 URL = "young-wave-9997.herokuapp.com"
 
-
-db = web.database(dbn='postgres',
-					user='alexloewi',
-					pw='dian4nao3',
-					db='alexloewi')
 
 def users():
 	return db.select('person')

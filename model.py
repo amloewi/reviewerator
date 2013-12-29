@@ -21,7 +21,7 @@ from smtplib         import SMTP_SSL
 #    "dbname=dk43q2hjo7pai host=ec2-23-23-81-171.compute-1.amazonaws.com port=5432 user=gmjfeaokrqybxu password=rWV1ucM1sW-BMFTz4LNTMQsTVW sslmode=require"
 
 # HEROKU PRODUCTION
-db = web.database(dbname='dk43q2hjo7pai',
+db = web.database(dbn='dk43q2hjo7pai',
  				   host='ec2-23-23-81-171.compute-1.amazonaws.com',
 				   port=5432,
 				   user='gmjfeaokrqybxu',

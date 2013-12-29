@@ -40,7 +40,9 @@ CREATE TABLE paper (
 	paper BYTEA, -- later
 	notes TEXT,
 	timeline SMALLINT, -- number of days requested for turnaround
-	date TIMESTAMP, -- date of submission
+	submitted TIMESTAMP, -- date of submission
+	num_assigned_reviewers SMALLINT,
+	num_completed_reviews SMALLINT,
 	
 	active BOOLEAN
 );
@@ -53,9 +55,12 @@ CREATE TABLE assignment (
 	rvr_year SMALLINT,
 	rvr_milestone VARCHAR(20),
 	rejected TEXT, -- list of those who have turned it down.
-	kind VARCHAR(10), -- jr/sr .. other
+	kind VARCHAR(10), -- jr/sr .. other?
 	accepted BOOLEAN, --by a reviewer
 	completed BOOLEAN, --by a reviewer
+	
+	assigned TIMESTAMP, -- 24 hours assigned w/ no response => pass
+	due TIMESTAMP,
 	
 	active BOOLEAN
 );

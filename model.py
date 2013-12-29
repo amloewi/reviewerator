@@ -2,6 +2,7 @@ import web
 import datetime
 from multisort import multisort #doesn't HAVE to be in a separate file
 import copy
+import os
 # All taken verbatim from 
 # http://stackoverflow.com/questions/9272257/how-can-i-send-email-using-python?rq=1
 # As are the contents of "email_notice()"
@@ -21,18 +22,22 @@ from smtplib         import SMTP_SSL
 #    "dbname=dk43q2hjo7pai host=ec2-23-23-81-171.compute-1.amazonaws.com port=5432 user=gmjfeaokrqybxu password=rWV1ucM1sW-BMFTz4LNTMQsTVW sslmode=require"
 
 # HEROKU PRODUCTION
-db = web.database(dbn='postgres',
-				   db='dk43q2hjo7pai',
- 				   host='ec2-23-23-81-171.compute-1.amazonaws.com',
-				   port=5432,
-				   user='gmjfeaokrqybxu',
-				   pw='rWV1ucM1sW-BMFTz4LNTMQsTVW',
-				   sslmode='require')
 
-# db = web.database(dbn='postgres',
-# 					user='alexloewi',
-# 					pw='dian4nao3',
-# 					db='alexloewi')
+if os.path.abspath("") == '/Users/alexloewi/Documents/Sites/heinz_reviewer':
+	db = web.database(dbn='postgres',
+					  user='alexloewi',
+					  pw='dian4nao3',
+					  db='alexloewi')
+else:
+	db = web.database(dbn='postgres',
+					  db='dk43q2hjo7pai',
+	 				  host='ec2-23-23-81-171.compute-1.amazonaws.com',
+					  port=5432,
+					  user='gmjfeaokrqybxu',
+					  pw='rWV1ucM1sW-BMFTz4LNTMQsTVW',
+					  sslmode='require')
+
+
 
 # The number of passes before you're disabled for PASS_PENALTY
 PASS_LIMIT = 5
@@ -199,13 +204,11 @@ def assign_reviewer(paper, kind, rejected=''):
 	 			r.id != paper['author'] and r.id not in rejected]
 	
 	if rvrs:
-		########################### Should only need to change this part.
 		# Split by seniority
 		kinds = ['jr', 'sr']
 		features = [["None yet", "1st Paper"],
 					["2nd Paper", "Proposal"]]
 		n = len(kinds)
-		###########################
 		
 		rdict = {k:[] for k in kinds}
 		# For each reviewer
@@ -220,16 +223,17 @@ def assign_reviewer(paper, kind, rejected=''):
 		# fxns is (are) defined immediately above
 		lists = [multisort(rdict[k], fxns, rev) for k in kinds]
 		
+		due = paper['submitted'] + datetime.timedelta(days=paper['timeline'])
+		
 		asmt = {"paper": 		paper['id'],
 				"accepted":		False,
 				"completed":	False,
 				"active":		True,
-				"rejected":		''}
+				"rejected":		'',
+				"assigned":		datetime.datetime.now(),
+				"due":			due}
 				# add 'kind'?
 
-		#asmts = [copy.copy(asmt) for i in range(n)]
-		#for i, a in enumerate(asmts):
-		
 		# A list of lists, sorted by 'kind'
 		candidates = [ [p.id for p in lists[i]] for i in range(n)]
 		# Go through EVERYBODY. In order, but maybe only 'later' 
@@ -241,7 +245,7 @@ def assign_reviewer(paper, kind, rejected=''):
 		# The first person from the corresponding list
 		asmt["reviewer"] = sorted_candidates[0]
 		selected = db.where('person', id=asmt['reviewer'])[0] #the rvr OBJECT
-		#candidates = " ".join(candidates[1:])
+		increment(selected, 'active_requests')
 		
 		asmt["kind"] 		   = kind
 		asmt['rvr_expertise']  = selected.expertise
@@ -251,9 +255,7 @@ def assign_reviewer(paper, kind, rejected=''):
 		
 		author = db.where('person', id=paper['author'])[0]
 		email_notice(selected.email, 'request', author=author.name,
-												contact_email=author.email)
-		increment(selected, 'active_requests')
-		
+												contact_email=author.email)		
 		db.insert('assignment', **asmt)
 				
 	else:
@@ -273,8 +275,13 @@ def process_submission(paper):
 	paper['active'] = True
 	paper_id = db.insert('paper', **paper)
 	paper['id'] = paper_id
-	assign_reviewer(paper, 'jr')
-	assign_reviewer(paper, 'sr')
+	paper['submitted'] = datetime.datetime.now()
+	
+	rvrs = ['jr', 'sr']
+	paper['num_assigned_reviewers'] = len(rvrs)
+	paper['num_completed_reviews'] = 0
+	for r in rvrs:
+		assign_reviewer(paper, r)
 	
 	# Notch one up for the submitter
 	author = db.where('person', id=paper['author'])[0]
@@ -335,6 +342,8 @@ def reject_submission(rvr_id, paper_id):
 		db.update('person', where="id=$id", vars=rvr, **rvr)
 		email_notice(rvr.email, 'disabled', author=str(PASS_PENALTY))
 	
+	# Assumes the same person will not be reviewering the same paper twice --
+	# should be safe though.
 	asmt = db.where('assignment', paper=paper.id, reviewer=rvr.id)[0]
 	asmt.accepted = False
 	asmt.active = False
@@ -348,6 +357,8 @@ def process_finish(fin_id):
 	finish = db.where('finished', id=fin_id)[0]
 	reviewer = db.where('person', id=finish.reviewer_id)[0]
 	author = db.where('person', id=finish.author_id)[0]
+	paper = db.where('paper', id=finish.paper_id)
+	increment(paper, 'num_completed_reviews')
 	increment(author, 'active_submissions', -1)
 	increment(reviewer, 'active_requests', -1)
 	increment(reviewer, 'reviewed')

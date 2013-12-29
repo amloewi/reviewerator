@@ -1,6 +1,7 @@
 import web
 import model
 import json
+import os
 
 import datetime
 import threading #for the refresh timer
@@ -24,7 +25,37 @@ urls = (
 
 render = web.template.render('templates')
 
-# Do a sweep every so often to flush old papers and activate remoted people
+# Do a sweep every so often (an hour, now) to flush old papers, pass on unresponded-to requests, and activate deactivated people
+SWEEP_FREQUENCY = 60*60 #seconds
+def sweep():
+	threading.Timer(SWEEP_FREQUENCY, sweep).start()
+	
+	now = datetime.datetime.now()
+	asmts = db.select('assignment', active=True, accepted=False)
+	for a in asmts:
+		# If it's been two days since the request was sent and nobody's
+		# accepted it, mark it as a pass and send a new one.
+		if a.assigned + datetime.timedelta(days=2) < now:
+			model.reject_submission(a.reviewer, a.paper)
+			
+	papers = db.select('paper', active=True)
+	for p in papers:
+		# If the paper's been due for a week, even if reviews aren't in, 
+		# it should be retired. (This allows for ... ?)
+		# Also, if it's gotten all its reviews in.
+		if p.num_assigned_reviewers == p.num_completed_reviews or\
+			p.submitted + datetime.timedelta(days=p.timeline+7) < now:
+			p.active = False
+			db.update('paper', where="id=$id", vars=p, **p)
+		
+	people = db.select('person', enabled=False)
+	for p in people:
+		# If someone was disabled for too many rejections, is their time done?
+		if p.disabled_until < now:
+			p.enabled = True
+			db.update('person', where="id=$id", vars=p, **p)
+	
+sweep()
 
 
 class login:        
@@ -189,9 +220,12 @@ if __name__ == "__main__":
 			"email":"amloewi@gmail.com",
 			"last_review":datetime.datetime.now()
 	}
-	#model.nuclear_option()
-	#model.test_insert(alex)
-	#model.test_insert(shelly)
-	#model.test_insert(paul)
-	#model.test_insert(clara)
+	
+	local = '/Users/alexloewi/Documents/Sites/heinz_reviewer'
+	if os.path.abspath("") == local:
+		model.test_insert(alex)
+		model.test_insert(shelly)
+		model.test_insert(paul)
+		model.test_insert(clara)
+		
 	app.run()

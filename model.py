@@ -43,6 +43,9 @@ else:
 PASS_LIMIT = 5
 # The number of days you're out, if you go over the pass limit
 PASS_PENALTY = 14 #days
+# Same, for accepting a review, then not returning it for more than a week.
+DROP_LIMIT = 1
+DROP_PENALTY = 14
 
 URL = "young-wave-9997.herokuapp.com"
 
@@ -172,10 +175,11 @@ def email_notice(to_email, message, author=None, reviewer=None,
 	    s.quit()
 
 				
-def increment(person, field, value=1):
+def increment(record, field, value=1, table='person'):
 	"""Takes the person OBJECT. Increments their 'field' attribute by one. """
-	person[field] += value
-	set_user_data(person)
+	record[field] += value
+	db.update(table, where="id=$id", vars=record, **record)
+	#set_user_data(person)
 
 # The functions used in multisort -- the priorities for choosing a 
 # reviewer
@@ -223,7 +227,8 @@ def assign_reviewer(paper, kind, rejected=''):
 		# fxns is (are) defined immediately above
 		lists = [multisort(rdict[k], fxns, rev) for k in kinds]
 		
-		due = paper['submitted'] + datetime.timedelta(days=paper['timeline'])
+		timeline = datetime.timedelta(days=int(paper['timeline']))
+		due = timeline + paper['submitted']
 		
 		asmt = {"paper": 		paper['id'],
 				"accepted":		False,
@@ -273,13 +278,12 @@ def process_submission(paper):
 
 	# Have to insert it to GET an id
 	paper['active'] = True
-	paper_id = db.insert('paper', **paper)
-	paper['id'] = paper_id
 	paper['submitted'] = datetime.datetime.now()
-	
 	rvrs = ['jr', 'sr']
 	paper['num_assigned_reviewers'] = len(rvrs)
-	paper['num_completed_reviews'] = 0
+	paper['num_completed_reviews'] = 0	
+	paper_id = db.insert('paper', **paper)
+	paper['id'] = paper_id
 	for r in rvrs:
 		assign_reviewer(paper, r)
 	
@@ -324,23 +328,38 @@ def accept_submission(rvr_id, paper_id):
 				'due':				now+due_td,
 				'title':	   		paper.title,}
 	db.insert('finished', **finished)
+
+
+def disable(person, penalty):
+	# Cut and pasted from where it was in 'reject_submission'
+	back = datetime.datetime.now() + datetime.timedelta(days=PASS_PENALTY)
+	person.enabled = False
+	person.disabled_until = back
+	db.update('person', where="id=$id", vars=person, **person)
+	email_notice(person.email, 'disabled', author=str(PASS_PENALTY))
 	
 	
 def reject_submission(rvr_id, paper_id):
 	# notch up the 'passes' for the rejector
 	paper = db.where('paper', id=paper_id)[0]
 	rvr = db.where('person', id=rvr_id)[0]
-	increment(rvr, 'passes')
-	increment(rvr, 'active_requests', -1) #i.e. decrement
 	
 	# Take the person out if they 'pass' too many requests.
 	rvr = db.where('person', id=rvr_id)[0]
-	if rvr.passes > PASS_LIMIT:
-		back = datetime.datetime.now() + datetime.timedelta(days=PASS_PENALTY)
-		rvr.enabled = False
-		rvr.disabled_until = back
-		db.update('person', where="id=$id", vars=rvr, **rvr)
-		email_notice(rvr.email, 'disabled', author=str(PASS_PENALTY))
+	# If you're ONE BELOW the limit (but have one more coming), you're out.
+	# mod is used (%) to preserve the true count, rather than resetting it.
+	if rvr.passes % PASS_LIMIT == PASS_LIMIT - 1:
+		disable(rvr, PASS_PENALTY)
+		
+		# back = datetime.datetime.now() + datetime.timedelta(days=PASS_PENALTY)
+		# rvr.enabled = False
+		# rvr.disabled_until = back
+		# db.update('person', where="id=$id", vars=rvr, **rvr)
+		# email_notice(rvr.email, 'disabled', author=str(PASS_PENALTY))
+	
+	# Do these AFTER the test
+	increment(rvr, 'passes')
+	increment(rvr, 'active_requests', -1) #i.e. decrement
 	
 	# Assumes the same person will not be reviewering the same paper twice --
 	# should be safe though.
@@ -357,9 +376,8 @@ def process_finish(fin_id):
 	finish = db.where('finished', id=fin_id)[0]
 	reviewer = db.where('person', id=finish.reviewer_id)[0]
 	author = db.where('person', id=finish.author_id)[0]
-	paper = db.where('paper', id=finish.paper_id)
-	increment(paper, 'num_completed_reviews')
-	increment(author, 'active_submissions', -1)
+	paper = db.where('paper', id=finish.paper_id)[0]
+	increment(paper, 'num_completed_reviews', 1, table="paper")
 	increment(reviewer, 'active_requests', -1)
 	increment(reviewer, 'reviewed')
 	email_notice(author.email, 'returned', reviewer=reviewer.name)
@@ -413,7 +431,7 @@ def test_insert(person):
 
 # remove the names from urls (LAST step -- hard to test that way)
 
-# html emails ... include the url in them ... 
+# html emails ... include the url in them ... gmail does it automatically, but does anybody else?
 
 ##############
 

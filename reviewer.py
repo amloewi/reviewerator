@@ -26,34 +26,46 @@ urls = (
 render = web.template.render('templates')
 
 # Do a sweep every so often (an hour, now) to flush old papers, pass on unresponded-to requests, and activate deactivated people
-SWEEP_FREQUENCY = 60*60 #seconds
+SWEEP_FREQUENCY = 5# 60*60 #seconds
 def sweep():
 	threading.Timer(SWEEP_FREQUENCY, sweep).start()
 	
 	now = datetime.datetime.now()
-	asmts = db.select('assignment', active=True, accepted=False)
+	asmts = model.db.where('assignment', active=True, accepted=False)
 	for a in asmts:
 		# If it's been two days since the request was sent and nobody's
 		# accepted it, mark it as a pass and send a new one.
 		if a.assigned + datetime.timedelta(days=2) < now:
 			model.reject_submission(a.reviewer, a.paper)
 			
-	papers = db.select('paper', active=True)
+	papers = model.db.where('paper', active=True)
 	for p in papers:
 		# If the paper's been due for a week, even if reviews aren't in, 
 		# it should be retired. (This allows for ... ?)
 		# Also, if it's gotten all its reviews in.
 		if p.num_assigned_reviewers == p.num_completed_reviews or\
 			p.submitted + datetime.timedelta(days=p.timeline+7) < now:
+			author = model.db.where('person', id=p.author)[0]
+			model.increment(author, 'active_submissions', -1)
 			p.active = False
-			db.update('paper', where="id=$id", vars=p, **p)
+			model.db.update('paper', where="id=$id", vars=p, **p)
+			# ALSO, give a 'dropped' to the people who were a full week late.
+			asmts = model.db.where('assignment', paper=p.id)
+			for a in asmts:
+				rvr = model.db.where('person', id=a.reviewer)[0]
+				# IF THEY'VE DROPPED TOO MANY -- DISABLE THEM.
+				if rvr.dropped % model.DROP_LIMIT == model.DROP_LIMIT - 1:
+					model.disable(rvr, model.DROP_PENALTY)
+				# GOTTA be AFTER for the check to work right.
+				increment(rvr, 'dropped')
+				# NOW (and not before), dropped % limit == 0. Reset.
 		
-	people = db.select('person', enabled=False)
+	people = model.db.where('person', enabled=False)
 	for p in people:
 		# If someone was disabled for too many rejections, is their time done?
 		if p.disabled_until < now:
 			p.enabled = True
-			db.update('person', where="id=$id", vars=p, **p)
+			model.db.update('person', where="id=$id", vars=p, **p)
 	
 sweep()
 
@@ -74,6 +86,8 @@ class users:
 class show_dashboard:
 	
 	def GET(self, id): 
+		# AS THE FINAL STEP, THIS NEXT LINE SHOULD BE UNCOMMENTED.
+		# DON'T GET THE ID FROM THE URL, BECAUSE IT SHOULDN'T BE THERE.
 		# id = json.loads(web.data())['id']
 		person   = model.get_user_data(id)
 		requests = model.get_user_requests(id)

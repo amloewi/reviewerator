@@ -1,7 +1,7 @@
 DROP TABLE person;
-DROP TABLE paper cascade;
-DROP TABLE assignment cascade;
-DROP TABLE feedback cascade;
+DROP TABLE paper;
+DROP TABLE assignment;
+DROP TABLE feedback;
 DROP TABLE finished;
 DROP TABLE alert;
 DROP TABLE review;

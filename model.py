@@ -121,37 +121,40 @@ def email_notice(to_email, message, author=None, reviewer=None,
 
 	# A notice to the reviewer that a review has been requested
 	if message == "request":
-		msg = """Please log in to the PhD Reviewer system to respond to the request from """+author+""". If you have any questions, their email is  """+contact_email+""".\n\nMany thanks from the entire PhD community,"""
+		text = "Please log in to the <a href='"+URL+"""'>PhD Reviewer system</a> to respond to the request from """+author+""". If you have any questions, their email is  """+contact_email+""".
+		<p>
+		Many thanks from the entire PhD community,
+		"""
 		
 		subject = "You have been requested to review a colleague's work"
 	
 	# A notice to the author that a request has been accepted
 	if message == "accepted":
-		msg = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. Their email is """+contact_email+""" \n\nMany thanks from the entire PhD community,"""
+		text = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. Their email is """+contact_email+""" \n\nMany thanks from the entire PhD community,"""
 		
 		subject = "Your review request has been accepted!"
 
 	# A notice to the author that a review has been completed
 	if message == "returned":
-		msg = reviewer+""" has completed your review! Please log in to the PhD Review System to accept it."""
+		text = reviewer+""" has completed your review! Please log in to the PhD Review System to accept it."""
 		
 		subject = "Your review has been completed!"
 		
 	# A reminder that the requested return date is approaching
 	if message == "deadline":
-		msg = """You have 24 hours remaining before a review is due. \nMany thanks from the entire PhD community,"""
+		text = """You have 24 hours remaining before a review is due. \nMany thanks from the entire PhD community,"""
 		
 		subject = "There is one day remaining on an active review deadline"
 	
 	# If a 'candidates' list runs dry on an assignment
 	if message == "apology":
-		msg = """We're very sorry, no one was available to fill one of your reviewer spots. Please try again soon."""
+		text = """We're very sorry, no one was available to fill one of your reviewer spots. Please try again soon."""
 		
 		subject = "One reviewer spot could not be filled"
 		
 	# If you pass the PASS_LIMIT (or maybe other things too?)
 	if message == "disabled":
-		msg = """We're very sorry, but you've rejected or dropped too many review requests. Your account will be disabled for """+author+""" days. Feel free to continue submitting papers as soon as you're back."""
+		text = """We're very sorry, but you've rejected or dropped too many review requests. Your account will be disabled for """+author+""" days. Feel free to continue submitting papers as soon as you're back."""
 		
 		subject = "Account temporarily disabled"
 	
@@ -159,14 +162,14 @@ def email_notice(to_email, message, author=None, reviewer=None,
 	# The tag #
 	###########	
 	subject = "[PhDRvr] " + subject
-	msg = msg + "\nSenator Heinz" + "\n" + URL
+	text = text + "\nSenator Heinz" + "\n" + URL
 	
 	
 		# The code below is pulled straight from
 #stackoverflow.com/questions/9272257/how-can-i-send-email-using-python?rq=1
 
 	#msg = MIMEMultipart('alternative') # for html
-	msg = MIMEText(msg, _charset='utf-8')
+	msg = MIMEText(text, 'html', _charset='utf-8')
 	msg['Subject'] = Header(subject, 'utf-8')
 	msg['From'] = login
 	msg['To'] = to_email

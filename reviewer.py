@@ -35,7 +35,7 @@ def sweep():
 	for a in asmts:
 		# If it's been two days since the request was sent and nobody's
 		# accepted it, mark it as a pass and send a new one.
-		if a.assigned + datetime.timedelta(days=2) < now:
+		if a.assigned + datetime.timedelta(days=model.ACCEPTANCE_WINDOW) < now:
 			model.reject_submission(a.reviewer, a.paper)
 			
 	papers = model.db.where('paper', active=True)
@@ -43,13 +43,16 @@ def sweep():
 		# If the paper's been due for a week, even if reviews aren't in, 
 		# it should be retired. (This allows for ... ?)
 		# Also, if it's gotten all its reviews in.
-		if p.num_assigned_reviewers == p.num_completed_reviews or\
-			p.submitted + datetime.timedelta(days=p.timeline+7) < now:
+		late = p.submitted + datetime.timedelta(days=p.timeline+7) < now
+		if p.num_assigned_reviewers == p.num_completed_reviews or late:
+			
 			author = model.db.where('person', id=p.author)[0]
 			model.increment(author, 'active_submissions', -1)
 			p.active = False
 			model.db.update('paper', where="id=$id", vars=p, **p)
-			# ALSO, give a 'dropped' to the people who were a full week late.
+
+		# ALSO, give a 'dropped' to the people who were a full week late.
+		if late:
 			asmts = model.db.where('assignment', paper=p.id)
 			for a in asmts:
 				rvr = model.db.where('person', id=a.reviewer)[0]
@@ -58,7 +61,7 @@ def sweep():
 					model.disable(rvr, model.DROP_PENALTY)
 				# GOTTA be AFTER for the check to work right.
 				increment(rvr, 'dropped')
-				# NOW (and not before), dropped % limit == 0. Reset.
+				# NOW (and not before), dropped % limit == 0, which is Reset.
 		
 	people = model.db.where('person', enabled=False)
 	for p in people:
@@ -66,9 +69,9 @@ def sweep():
 		if p.disabled_until < now:
 			p.enabled = True
 			model.db.update('person', where="id=$id", vars=p, **p)
-	
-sweep()
 
+# Start the sweep
+sweep()
 
 class login:        
     def GET(self):
@@ -185,6 +188,7 @@ if __name__ == "__main__":
 			"reviewed":3,
 			"milestone":"None yet",
 			"enabled":True,
+			#"disabled_until": datetime.datetime.now() + datetime.timedelta(minutes=1),
 			"passes":0,
 			"dropped":0,
 			"active_requests":0,

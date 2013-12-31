@@ -236,6 +236,9 @@ $def with (person, requests, alerts, finished, feedback)
 				
 				jQuery("#buttons").hide()
 				jQuery("#checkboxes").hide()
+				$if not person.enabled:
+					// Maybe I'll put something there later
+					jQuery('#submission_container').replaceWith("<div style='height:250px;border:10px solid lightgray;font-weight:bold;' class='col-md-8'>We're, sorry, your account has been temporarily disabled.</div>")
 				
 				ra = jQuery("#request_alert")
 				$if requests:
@@ -287,7 +290,7 @@ $def with (person, requests, alerts, finished, feedback)
 					 style="width:95%"
 				>
 					<div id="inbox_label">
-						Inbox
+						Notifications
 					</div>
 				</div>
 			
@@ -602,7 +605,9 @@ $def with (person, requests, alerts, finished, feedback)
 				
 		  	<!-- </div> </div> Closes ... the bottom-row-->
 		</div><!-- closes 'container' -->
-
+		<div style="float:right; padding-top:10px">
+			Problems? The administrator's email is amloewi@gmail.com
+		</div>
 	</body>
 
 </html>

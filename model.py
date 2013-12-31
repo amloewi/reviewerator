@@ -48,6 +48,8 @@ PASS_PENALTY = 14 #days
 # Same, for accepting a review, then not returning it for more than a week.
 DROP_LIMIT = 1
 DROP_PENALTY = 14
+# How long you will be offered a review before you are assumed to have rejected
+ACCEPTANCE_WINDOW = 2 #days
 
 URL = "young-wave-9997.herokuapp.com"
 
@@ -123,14 +125,14 @@ def email_notice(to_email, message, author=None, reviewer=None,
 	if message == "request":
 		text = "Please log in to the <a href='"+URL+"""'>PhD Reviewer system</a> to respond to the request from """+author+""". If you have any questions, their email is  """+contact_email+""".
 		<p>
-		Many thanks from the entire PhD community,
+		Many thanks from the entire PhD community,<br>
 		"""
 		
 		subject = "You have been requested to review a colleague's work"
 	
 	# A notice to the author that a request has been accepted
 	if message == "accepted":
-		text = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. Their email is """+contact_email+""" \n\nMany thanks from the entire PhD community,"""
+		text = """Your request for a review has been accepted by  """+reviewer+"""! Please send them a copy of your paper as soon as possible. Their email is """+contact_email+""" <p>Many thanks from the entire PhD community,<br>"""
 		
 		subject = "Your review request has been accepted!"
 
@@ -142,7 +144,7 @@ def email_notice(to_email, message, author=None, reviewer=None,
 		
 	# A reminder that the requested return date is approaching
 	if message == "deadline":
-		text = """You have 24 hours remaining before a review is due. \nMany thanks from the entire PhD community,"""
+		text = """You have 24 hours remaining before a review is due. <p>Many thanks from the entire PhD community,"""
 		
 		subject = "There is one day remaining on an active review deadline"
 	
@@ -162,7 +164,7 @@ def email_notice(to_email, message, author=None, reviewer=None,
 	# The tag #
 	###########	
 	subject = "[PhDRvr] " + subject
-	text = text + "\nSenator Heinz" + "\n" + URL
+	text = text + "<p>Senator Heinz" + "<br>" + URL
 	
 	
 		# The code below is pulled straight from
@@ -217,7 +219,6 @@ def assign_reviewer(paper, kind, rejected=''):
 	# to people who have already rejected it
 	rvrs = [r for r in rvrs if
 	 			r.id != paper['author'] and r.id not in rejected]
-	
 	if rvrs:
 		# Split by seniority
 		kinds = ['jr', 'sr']

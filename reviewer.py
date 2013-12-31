@@ -26,7 +26,7 @@ urls = (
 render = web.template.render('templates')
 
 # Do a sweep every so often (an hour, now) to flush old papers, pass on unresponded-to requests, and activate deactivated people
-SWEEP_FREQUENCY = 5# 60*60 #seconds
+SWEEP_FREQUENCY = 60*60 #seconds
 def sweep():
 	threading.Timer(SWEEP_FREQUENCY, sweep).start()
 	
@@ -126,8 +126,8 @@ class submit_request:
 		data = web.data()
 		if data:
 			data = json.loads(data)
-			data = {d["name"]:d["value"] for d in data}
-			print(data)
+			#data = {d["name"]:d["value"] for d in data}
+			#print(data)
 			model.process_submission(data)
 		
 		

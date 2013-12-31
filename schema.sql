@@ -81,6 +81,7 @@ CREATE TABLE finished (
 CREATE TABLE alert (
 	id SERIAL PRIMARY KEY,
 	person VARCHAR(30), -- the intended recipient
+	paper INTEGER,
 	message TEXT, -- either 'you have a reviewer' or 'you have a review due'
 	reveal_if_after TIMESTAMP -- when it should be sent to the inbox
 );

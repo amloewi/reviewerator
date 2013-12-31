@@ -40,9 +40,16 @@ $def with (person, requests, alerts, finished, feedback)
 			// Called when someone sends a submission
 			function submit_review_request(){
 				// Get the form data: Abstract, Title, etc.
-				submission = jQuery("#submission").serializeArray()
+				
+				sub = jQuery("#submission").serializeArray()
+				submission = {}
+				for(i in sub){
+					// SUPER awful way of getting invisible characters (new lines, carriage returns?) out of the text inputs. They were causing terrible errors though.
+			submission[sub[i]['name']] = sub[i]['value'].replace(/\s/g, " ")
+				}
 				// Identify it -- this isn't in the form
-				submission.push({"name":"author", "value":"$person.id"})
+				//submission.push({"name":"author", "value":"$person.id"})
+				submission['author'] = "$person.id"
 
 				jQuery.post("/submit",
 					JSON.stringify(submission),
@@ -86,7 +93,7 @@ $def with (person, requests, alerts, finished, feedback)
 					jQuery("#request_title").text("$requests[i].title")
 					jQuery("#request_abstract").text("$requests[i].abstract")
 					
-					//jQuery("#request_notes").text("requests[i].notes")
+					jQuery("#request_notes").text("$requests[i].notes")
 					
 					rt = jQuery("#request_timeline")
 					rt.text("Can you review this paper within\
@@ -476,6 +483,7 @@ $def with (person, requests, alerts, finished, feedback)
 								class="col-md-12"
 								type="text"
 								name="title"
+								id="title"
 								placeholder="Title"
 							>
 							<p>
@@ -484,6 +492,7 @@ $def with (person, requests, alerts, finished, feedback)
 								style="height:150px
 									   "
 								name="abstract"
+								id="abstract"
 								placeholder="Abstract"
 							></textarea>
 					
@@ -496,6 +505,7 @@ $def with (person, requests, alerts, finished, feedback)
 								class="col-md-12"
 								style="height:120px"
 								name="notes"
+								id="notes"
 								placeholder="Notes, e.g. things to focus on."
 							></textarea>
 					

@@ -7,11 +7,12 @@ import os
 # http://stackoverflow.com/questions/9272257/how-can-i-send-email-using-python?rq=1
 # As are the contents of "email_notice()"
 from email.header    import Header
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from smtplib         import SMTP_SSL
 
 ##############
-# THE COMMAND I NEED (IT APPEARS) TO STICK THE DATABASE UP
+# THE COMMAND I NEED (IT APPEARS) TO PUSH THE DATABASE TO THE SITE:
 #heroku pg:transfer -f postgres://localhost/alexloewi -t postgres://gmjfeaokrqybxu:rWV1ucM1sW-BMFTz4LNTMQsTVW@ec2-23-23-81-171.compute-1.amazonaws.com:5432/dk43q2hjo7pai
 ##############
 
@@ -23,6 +24,7 @@ from smtplib         import SMTP_SSL
 
 # HEROKU PRODUCTION
 
+# Chooses the correct database connection based upon whether the db is local, and for development, or the actual site's db. Does so by testing the path of the current file.
 if os.path.abspath("") == '/Users/alexloewi/Documents/Sites/heinz_reviewer':
 	db = web.database(dbn='postgres',
 					  user='alexloewi',
@@ -51,6 +53,7 @@ URL = "young-wave-9997.herokuapp.com"
 
 
 def users():
+	"""Called to check login ids against active users at the login page."""
 	return db.select('person')
 
 def create_user(id):
@@ -66,6 +69,9 @@ def create_user(id):
 					   last_review=now,
 					   enabled=True)
 	
+	
+# The get_user_* set of functions are used in rendering an individual's dashboard. Each is necessary to pull a different kind of message (request, alert, etc.) of which the user may need to be informed. They tend to be simple single database calls to the relevant tables.
+
 def get_user_data(id):
 	return db.where('person', id=id)[0]
 
@@ -94,7 +100,6 @@ def get_user_alerts(id):
 	active = [a for a in alerts if a.reveal_if_after < now]
 	return active
 
-
 def get_user_finished(id):
 	finished = list(db.where('finished', reviewer_id=id))
 	return finished 
@@ -109,7 +114,7 @@ def email_notice(to_email, message, author=None, reviewer=None,
 												 contact_email=None):
 	""" The function that emails the relevant parties when an action is taken.
 	
-	
+	Has messages for when a request for a review is sent out, for when a review request is accepted, for when a review is returned, for when a deadline is approaching, for when a reviewer could not be found, and for when rejecting or dropping too many reviews has resulted in a temporary suspension. Includes contact emails when necessary, and tries to include paper titles etc. so as to not be ambiguous about what has caused the email.
 	"""
 
 	login, password = 'heinz.phd.reviewer@gmail.com', 'phdpeerreview'
@@ -146,7 +151,7 @@ def email_notice(to_email, message, author=None, reviewer=None,
 		
 	# If you pass the PASS_LIMIT (or maybe other things too?)
 	if message == "disabled":
-		msg = """We're very sorry, but you've rejected too many review requests. Your account will be disabled for """+author+""" days. Feel free to continue submitting papers as soon as you're back."""
+		msg = """We're very sorry, but you've rejected or dropped too many review requests. Your account will be disabled for """+author+""" days. Feel free to continue submitting papers as soon as you're back."""
 		
 		subject = "Account temporarily disabled"
 	
@@ -159,7 +164,8 @@ def email_notice(to_email, message, author=None, reviewer=None,
 	
 		# The code below is pulled straight from
 #stackoverflow.com/questions/9272257/how-can-i-send-email-using-python?rq=1
-	
+
+	#msg = MIMEMultipart('alternative') # for html
 	msg = MIMEText(msg, _charset='utf-8')
 	msg['Subject'] = Header(subject, 'utf-8')
 	msg['From'] = login
@@ -176,10 +182,9 @@ def email_notice(to_email, message, author=None, reviewer=None,
 
 				
 def increment(record, field, value=1, table='person'):
-	"""Takes the person OBJECT. Increments their 'field' attribute by one. """
+	"""Takes a database record. Increments the 'field' attribute by 'value.'"""
 	record[field] += value
 	db.update(table, where="id=$id", vars=record, **record)
-	#set_user_data(person)
 
 # The functions used in multisort -- the priorities for choosing a 
 # reviewer
@@ -198,7 +203,10 @@ fxns = [request_count, submit_diff, recent_review]
 
 
 def assign_reviewer(paper, kind, rejected=''):	
-
+	""" Finds a reviewer when a new paper is submitted, or a review is refused.
+	
+	Probably the most complex function in the site, although the most opaque computations likely occur in 'multisort,' which this only calls. Sorts reviewers by seniority, active review request load, the difference between their submission and review counts (to push new reviews towards people who have contributed less than they've received) and by last completed review. This entire process is necessary each time a reviewer is needed because each of these attributes may change after the original review is assigned, and so the best NEXT candidate may be different than they were at the original submission.
+	"""
 	# Choose reviewers, based on the ratio AND CURRENT LOAD
 	rvrs = list(db.where('person', enabled=True))
 	rejected = rejected.split()
@@ -223,8 +231,9 @@ def assign_reviewer(paper, kind, rejected=''):
 				if r.milestone in features[i]:
 					# Sort them accordingly.
 					rdict[kinds[i]].append(r)
-		# Do the multi-parameter prioritized sort
-		# fxns is (are) defined immediately above
+		# Do the multi-parameter prioritized sort.
+		# fxns is (are) defined immediately above this function.
+		# This results in one multi-sorted list for each seniority level.
 		lists = [multisort(rdict[k], fxns, rev) for k in kinds]
 		
 		timeline = datetime.timedelta(days=int(paper['timeline']))
@@ -234,20 +243,22 @@ def assign_reviewer(paper, kind, rejected=''):
 				"accepted":		False,
 				"completed":	False,
 				"active":		True,
-				"rejected":		'',
+				"rejected":		' '.join(rejected),
 				"assigned":		datetime.datetime.now(),
 				"due":			due}
-				# add 'kind'?
 
-		# A list of lists, sorted by 'kind'
+		# A list of seniority lists, sorted by 'kind'
 		candidates = [ [p.id for p in lists[i]] for i in range(n)]
-		# Go through EVERYBODY. In order, but maybe only 'later' 
-		# ones are THERE
+		# Everyone is a candidate for a reviewer -- we're looking for the BEST
+		# match, but that's relative. So, put the seniority lists themselves
+		# in order, starting with the desired seniority, but following with the
+		# rest in order (looping when you get to most senior). This will 
+		# reliably find the BEST match.
 		sorted_candidates = []
 		ix = kinds.index(kind)
 		for j in range(ix,n)+range(ix):
-			sorted_candidates += candidates[j] #[p.id for p in lists[j]] 
-		# The first person from the corresponding list
+			sorted_candidates += candidates[j]
+		# The first person from the all-encompassing list
 		asmt["reviewer"] = sorted_candidates[0]
 		selected = db.where('person', id=asmt['reviewer'])[0] #the rvr OBJECT
 		increment(selected, 'active_requests')
@@ -269,8 +280,9 @@ def assign_reviewer(paper, kind, rejected=''):
 		email_notice(author.email, "apology")
 
 def process_submission(paper):
-	'''Called when a review request is submitted. Increments the 
-	number of reviews requested in the reviewer\'s profile, then 
+	'''Called when a review request is sent out. Sends review requests.
+	
+	Increments the number of reviews requested in the reviewer\'s profile, then 
 	selects two (currently) reviewers for them, and files the submission.
 	It will be called up when they log in. 
 	And this emails the chosen reviewers, to let them know.
@@ -294,6 +306,10 @@ def process_submission(paper):
 
 
 def accept_submission(rvr_id, paper_id):
+	""" Called when someone accepts a review request.
+	
+	Sends the necessary parties emails, sets up due-date alerts for 24 hours before it's due, and makes the 'finished' object for when the reviewer is done.
+	"""
 	# Get the submission itself
 	paper = db.where('paper', id=paper_id)[0]
 	author = db.where('person', id=paper.author)[0]
@@ -331,6 +347,10 @@ def accept_submission(rvr_id, paper_id):
 
 
 def disable(person, penalty):
+	""" Used on a person who has rejected or dropped too many jobs.
+	
+	Renders their profile inactive for the amount of penalty time that is passed, and sends them an email saying so. 
+	"""
 	# Cut and pasted from where it was in 'reject_submission'
 	back = datetime.datetime.now() + datetime.timedelta(days=PASS_PENALTY)
 	person.enabled = False
@@ -340,6 +360,10 @@ def disable(person, penalty):
 	
 	
 def reject_submission(rvr_id, paper_id):
+	""" Does the necessary housekeeping when someone refuses a review request.
+	
+	This includes giving them a 'pass,' checking to see if they should be disabled as a result, putting to rest their assignment, and generating a new one.
+	"""
 	# notch up the 'passes' for the rejector
 	paper = db.where('paper', id=paper_id)[0]
 	rvr = db.where('person', id=rvr_id)[0]
@@ -351,12 +375,6 @@ def reject_submission(rvr_id, paper_id):
 	if rvr.passes % PASS_LIMIT == PASS_LIMIT - 1:
 		disable(rvr, PASS_PENALTY)
 		
-		# back = datetime.datetime.now() + datetime.timedelta(days=PASS_PENALTY)
-		# rvr.enabled = False
-		# rvr.disabled_until = back
-		# db.update('person', where="id=$id", vars=rvr, **rvr)
-		# email_notice(rvr.email, 'disabled', author=str(PASS_PENALTY))
-	
 	# Do these AFTER the test
 	increment(rvr, 'passes')
 	increment(rvr, 'active_requests', -1) #i.e. decrement
@@ -373,6 +391,11 @@ def reject_submission(rvr_id, paper_id):
 	
 	
 def process_finish(fin_id):
+	""" Called when someone signals that they are done with a review.
+	
+	Does a large amount of housekeeping. Active requests need to be decremented, emails need to be sent, both reviewer and author are toggled or involved in some way or another. The assignment needs to be retired, the paper needs to be marked as having a finished review ... the pending alerts need to be deleted, as does the now obsolete 'finished' object. The review itself is submitted, and a feedback survey is sent to the author. But, it doesn't seem like there's a useful way to factor any of those things out. This doesn't do anything complicated -- it just does a lot.
+	"""
+	
 	finish = db.where('finished', id=fin_id)[0]
 	reviewer = db.where('person', id=finish.reviewer_id)[0]
 	author = db.where('person', id=finish.author_id)[0]
@@ -383,11 +406,14 @@ def process_finish(fin_id):
 	email_notice(author.email, 'returned', reviewer=reviewer.name)
 	db.delete('finished', where="id=$id", vars=finish)
 	
+	# Since they've finished, they don't need to be alerted.
+	alerts = db.where('alert', paper=finish.paper_id)
+	for a in alerts:
+		db.delete('alert', where="id=$id", vars=a)
+	
 	# Log the old assignment as finished.
 	asmt = db.where('assignment', paper=finish.paper_id,
 								  reviewer=finish.reviewer_id)[0]
-	#db.delete('assignment', where="id=$id", vars=asmt)
-	#db.insert('finished_assignment', **asmt)
 	asmt.completed = True
 	asmt.active = False
 	db.update('assignment', where="id=$id", vars=asmt, **asmt)
@@ -411,11 +437,13 @@ def process_finish(fin_id):
 	db.insert('feedback', **feedback)			
 
 def process_feedback(id, score):
+	""" The function that responds to a satisfaction survey being submitted.
+	
+	Deactivates the survey, and logs the 'feedback' object, along with the score that the review was given (1-7) and any notes that were written with it.
+	"""
 	fb = db.where('feedback', id=id)[0]
-	#db.delete('feedback', where="id=$id", vars=fb)
 	fb.active = False
 	fb.score = score
-	#db.insert('finished_feedback', **fb)
 	db.update('feedback', where="id=$id", vars=fb, **fb)
 
 

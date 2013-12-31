@@ -90,35 +90,40 @@
 		
 	</head>
 	<body>
+		<div
+		 id="container"
+		 style="width:800px;
+				height:400px;
+				margin:0 auto;
+				margin-top:100px;
+				position:relative"
+				>
 		
-		<div class="col-md-3"></div>
-		
-		<div class="col-md-6"
-			 style="padding-bottom:20px; padding-top:40px; padding-left:190px"
-		>
-			<div style="margin-left:30px">
-				<img src="/static/images/heinz.png"/>
-			</div>
-			<h4>PhD Student Peer Review System</h4>
-		</div>
-			
-		<div class="container">
-			
-			<!-- Left-padding -->
-			<div class="col-md-3"></div>
-			
-			<div id="new_user_container"
-				 class="col-md-3"
-			>	
+			<div
+			 id="signup_container"
+			 style="position:absolute;
+					width:400px;
+					height:400px;
+					margin-left:0px;
+					background-color:gray">
+					
 					<div id="new_user_instructions"
-						 class="col-md-12 instructions"
-					>
-						If you do not have an account yet, please choose a login and enter it here, twice.<p>
+						 style="width:300px;
+								margin-left:50px;
+								margin-top:60px;
+								text-align:center;
+								font-size:20px;
+								font-family:sans-serif;
+								font-weight:bold"
+								>
+							If you do not have an account yet, please choose a login and enter it here, twice.<p>
 					</div>
 					
 					<form
 						class="form-signin"
 						name="new_user_form"
+						style="top-margin:50px;
+								"
 					>
 						<input
 							class="form-control"
@@ -139,17 +144,32 @@
 					</form>
 					
 					<div id="new_user_error"
-						 class="error_message"
-					>
+						 style="text-align:center;
+								width:300px;
+								margin-left:50px;
+								font-family:sans-serif"
+								>
 					</div>
-			</div> <!-- Closes 'new_user_container' -->
 			
-			<div id="old_user_container"
-				 class="col-md-3"
-			>
-					<div id="old_user_instructions" 
-						 class="col-md-12 instructions"
-					>
+			</div>
+			
+			<div
+			 id="login_container"
+			 style="position:absolute;
+					width:400px;
+					height:400px;
+					margin-left:400px;
+					background-color:lightblue">
+					
+					<div id="old_user_instructions"
+						 style="width:300px;
+								margin-left:50px;
+								margin-top:60px;
+								text-align:center;
+								font-size:20px;
+								font-family:sans-serif;
+								font-weight:bold"
+								>
 							If you DO have an account, you can enter your login here to get to it.<p>
 					</div>
 					
@@ -159,7 +179,7 @@
 							class="form-control"
 							type="text"
 							id="old_user_signin"
-						><p><div style="height:35px;"></div>
+						><p><div style="height:39px;"></div>
 						<input
 						    class="btn ptn-primary"
 							type="button"
@@ -168,11 +188,14 @@
 						>
 					</form>
 					
-					<div id="old_user_error"
-						 class="error_message"
-					>
-					</div>
-			</div> <!-- Closes 'old_user_container' -->
-		</div> <!-- Closes 'container' -->
+						<div id="old_user_error"
+							 style="text-align:center;
+									width:300px;
+									margin-left:50px;
+									font-family:sans-serif;"
+									>
+						</div>
+			</div>
+		</div>
 	</body>
 </html>

@@ -1,35 +1,33 @@
 from pprint import pprint
 
 def multisort(x, fxns, reverse):
-	"""A recursive function that sorts simultaneously on multiple,
-		prioritized criteria. It sorts the whole list by the first
-		criterion, then for each subset of elements with the same sorting value,
-		it sorts THAT set by the SECOND criterion, etc. Useful for being
-		able to break several kinds of ties of tiered importance.
+	"""Recursively sorts simultaneously on multiple, prioritized criteria.
+	
+	This function sorts the whole list 'x' by the first criterion (i.e., the 'key' function 0 passed in 'fxns'), then for each subset of elements with the same sorting value, it sorts THAT set by the SECOND criterion (fxns[1]), etc. Useful for being able to break several kinds of ties of tiered importance.
 	"""
 	
+	# If there are criteria left for sorting (or elements to sort),
 	if fxns and len(x) > 1:
-		# Sort the first bunch
+		# Sort the first bunch, by the first criterion.
 		x = sorted(x, key=fxns[0], reverse=reverse[0])
-		#print "x: \n", x
-		# Find the places where the values change --
-		# These will be the sublists
+		# Find the places where the values change 
+		# Each same-valued chunk will be a sublist
 		values = [fxns[0](elem) for elem in x]
-		#print "values: \n", values
 		# Pre and post-pend values to diffs that handle the
-		# edge cases when you're subsetting with the
-		# start or end of the list. Necessary because the 'diffs' list comp.
-		# only gives you values from the middle.
+		# edge cases.
 		diffs = [0]
 		# Tells you the indices of spots when values change -- in other words,
 		# where the cut-points should be for the sublists
 		diffs += [i+1 for i in range(len(values)-1) if values[i]!=values[i+1]]
+		# The second edge-case
 		diffs.append(len(x))
-		#print "diffs: \n", diffs
+		# Makes a sublist for each set of elements with the SAME value, under
+		# the current sorting criterion. Each will be sorted by the NEXT 	
+		# criterion, in the next level of recursion.
 		sublists = [x[diffs[j]:diffs[j+1]] for j in range(len(diffs)-1)]
-		#print "sublists: \n", sublists
-		f = fxns[1:]
-		r = reverse[1:]         
+		f = fxns[1:] # pass the remaining criteria
+		r = reverse[1:] # and the remaining arguments for sort as/des-cending.
+		# Flattens the results from the next recursive call.         
 		return [elem for sl in sublists for elem in multisort(sl, f, r)]
 	else:
 		return(x)

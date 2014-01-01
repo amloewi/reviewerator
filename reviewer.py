@@ -10,6 +10,7 @@ urls = (
     '/', 					'login',		  # ugly
 	'/users',				'users',
 	'/dashboard/(.+)',		'show_dashboard',
+	#'/dashboard',			'show_dashboard',
 	'/edit/(.+)', 			'edit_user',     
 	'/create_user',			'create_user',
 	'/submit',				'submit_request',
@@ -91,7 +92,7 @@ class show_dashboard:
 	def GET(self, id): 
 		# AS THE FINAL STEP, THIS NEXT LINE SHOULD BE UNCOMMENTED.
 		# DON'T GET THE ID FROM THE URL, BECAUSE IT SHOULDN'T BE THERE.
-		# id = json.loads(web.data())['id']
+		#id = json.loads(web.data())['id']
 		person   = model.get_user_data(id)
 		requests = model.get_user_requests(id)
 		alerts   = model.get_user_alerts(id)
